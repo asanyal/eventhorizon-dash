@@ -14,9 +14,9 @@ export const CalendarEventsList = ({ events, timeFilter }: CalendarEventsListPro
       <div className="bg-table-header px-4 py-3 border-b border-border">
         <div className="grid grid-cols-10 gap-3 text-sm font-medium text-productivity-text-secondary">
           <div className="col-span-1"></div> {/* Urgency indicator */}
-          <div className="col-span-4">Event</div>
+          <div className="col-span-3">Event</div>
           <div className="col-span-2">Interval</div>
-          <div className="col-span-2">Date</div>
+          <div className="col-span-3">Date</div>
           <div className="col-span-1">Duration</div>
         </div>
       </div>
@@ -53,12 +53,12 @@ export const CalendarEventsList = ({ events, timeFilter }: CalendarEventsListPro
                   </div>
                   
                   {/* Event Title */}
-                  <div className="col-span-4">
-                    <span className="text-productivity-text-primary text-sm">
+                  <div className="col-span-3 max-w-[200px]">
+                    <span className="text-productivity-text-primary text-sm break-words leading-tight">
                       {event.title}
                     </span>
                     {event.description && (
-                      <div className="text-sm text-productivity-text-tertiary mt-1">
+                      <div className="text-sm text-productivity-text-tertiary mt-1 break-words">
                         {event.description}
                       </div>
                     )}
@@ -72,7 +72,7 @@ export const CalendarEventsList = ({ events, timeFilter }: CalendarEventsListPro
                   </div>
                   
                   {/* Date */}
-                  <div className="col-span-2">
+                  <div className="col-span-3">
                     <span className="text-productivity-text-primary font-medium text-sm">
                       {formatDateTime(event.startTime)}
                     </span>
