@@ -47,6 +47,25 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // Productivity App Colors
+        productivity: {
+          surface: "hsl(var(--productivity-surface))",
+          "surface-subtle": "hsl(var(--productivity-surface-subtle))",
+          "text-primary": "hsl(var(--productivity-text-primary))",
+          "text-secondary": "hsl(var(--productivity-text-secondary))",
+          "text-tertiary": "hsl(var(--productivity-text-tertiary))",
+        },
+        urgency: {
+          critical: "hsl(var(--urgency-critical))",
+          warning: "hsl(var(--urgency-warning))",
+          normal: "hsl(var(--urgency-normal))",
+          future: "hsl(var(--urgency-future))",
+        },
+        table: {
+          header: "hsl(var(--table-header))",
+          "row-even": "hsl(var(--table-row-even))",
+          "row-hover": "hsl(var(--table-row-hover))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
