@@ -14,9 +14,9 @@ export const CalendarEventsList = ({ events, timeFilter }: CalendarEventsListPro
       <div className="bg-table-header px-4 py-3 border-b border-border">
         <div className="grid grid-cols-10 gap-3 text-sm font-medium text-productivity-text-secondary">
           <div className="col-span-1"></div> {/* Urgency indicator */}
-          <div className="col-span-2">Date</div>
-          <div className="col-span-2">Interval</div>
           <div className="col-span-4">Event</div>
+          <div className="col-span-2">Interval</div>
+          <div className="col-span-2">Date</div>
           <div className="col-span-1">Duration</div>
         </div>
       </div>
@@ -52,20 +52,6 @@ export const CalendarEventsList = ({ events, timeFilter }: CalendarEventsListPro
                     />
                   </div>
                   
-                  {/* Date */}
-                  <div className="col-span-2">
-                    <span className="text-productivity-text-primary font-medium text-sm">
-                      {formatDateTime(event.startTime)}
-                    </span>
-                  </div>
-                  
-                  {/* Time Interval */}
-                  <div className="col-span-2">
-                    <span className="text-productivity-text-secondary font-mono text-sm">
-                      {getTimeUntilEvent(event.startTime)}
-                    </span>
-                  </div>
-                  
                   {/* Event Title */}
                   <div className="col-span-4">
                     <span className="text-productivity-text-primary text-sm">
@@ -76,6 +62,20 @@ export const CalendarEventsList = ({ events, timeFilter }: CalendarEventsListPro
                         {event.description}
                       </div>
                     )}
+                  </div>
+                  
+                  {/* Time Interval */}
+                  <div className="col-span-2">
+                    <span className="text-productivity-text-secondary font-mono text-sm">
+                      {getTimeUntilEvent(event.startTime)}
+                    </span>
+                  </div>
+                  
+                  {/* Date */}
+                  <div className="col-span-2">
+                    <span className="text-productivity-text-primary font-medium text-sm">
+                      {formatDateTime(event.startTime)}
+                    </span>
                   </div>
                   
                   {/* Duration */}
