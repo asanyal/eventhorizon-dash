@@ -9,14 +9,14 @@ interface CalendarEventsListProps {
 
 export const CalendarEventsList = ({ events, timeFilter }: CalendarEventsListProps) => {
   return (
-    <div className="bg-productivity-surface rounded-lg shadow-md overflow-hidden">
+    <div className="bg-productivity-surface rounded-lg shadow-md overflow-hidden max-w-5xl">
       {/* Table Header */}
-      <div className="bg-table-header px-6 py-4 border-b border-border">
-        <div className="grid grid-cols-12 gap-4 text-sm font-medium text-productivity-text-secondary">
+      <div className="bg-table-header px-4 py-3 border-b border-border">
+        <div className="grid grid-cols-10 gap-3 text-sm font-medium text-productivity-text-secondary">
           <div className="col-span-1"></div> {/* Urgency indicator */}
-          <div className="col-span-3">Date</div>
+          <div className="col-span-2">Date</div>
           <div className="col-span-2">Interval</div>
-          <div className="col-span-5">Event</div>
+          <div className="col-span-4">Event</div>
           <div className="col-span-1">Duration</div>
         </div>
       </div>
@@ -24,7 +24,7 @@ export const CalendarEventsList = ({ events, timeFilter }: CalendarEventsListPro
       {/* Events List */}
       <div className="divide-y divide-border">
         {events.length === 0 ? (
-          <div className="px-6 py-12 text-center text-productivity-text-tertiary">
+          <div className="px-4 py-8 text-center text-productivity-text-tertiary">
             No events found for the selected time period.
           </div>
         ) : (
@@ -36,11 +36,11 @@ export const CalendarEventsList = ({ events, timeFilter }: CalendarEventsListPro
               <div
                 key={event.id}
                 className={cn(
-                  "px-6 py-4 hover:bg-table-row-hover transition-all duration-200",
+                  "px-4 py-3 hover:bg-table-row-hover transition-all duration-200",
                   isEven ? "bg-productivity-surface" : "bg-table-row-even"
                 )}
               >
-                <div className="grid grid-cols-12 gap-4 items-center">
+                <div className="grid grid-cols-10 gap-3 items-center">
                   {/* Urgency Indicator */}
                   <div className="col-span-1 flex justify-center">
                     <div 
@@ -53,8 +53,8 @@ export const CalendarEventsList = ({ events, timeFilter }: CalendarEventsListPro
                   </div>
                   
                   {/* Date */}
-                  <div className="col-span-3">
-                    <span className="text-productivity-text-primary font-medium">
+                  <div className="col-span-2">
+                    <span className="text-productivity-text-primary font-medium text-sm">
                       {formatDateTime(event.startTime)}
                     </span>
                   </div>
@@ -67,8 +67,8 @@ export const CalendarEventsList = ({ events, timeFilter }: CalendarEventsListPro
                   </div>
                   
                   {/* Event Title */}
-                  <div className="col-span-5">
-                    <span className="text-productivity-text-primary">
+                  <div className="col-span-4">
+                    <span className="text-productivity-text-primary text-sm">
                       {event.title}
                     </span>
                     {event.description && (
