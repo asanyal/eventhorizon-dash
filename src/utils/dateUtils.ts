@@ -31,19 +31,29 @@ export const getTimeUntilEvent = (eventDate: Date): string => {
     const absDiffMinutes = Math.abs(diffMinutes);
     if (absDiffMinutes < 60) {
       return `${absDiffMinutes}m ago`;
-    } else {
+    } else if (absDiffMinutes < 1440) { // Less than 24 hours
       const hours = Math.floor(absDiffMinutes / 60);
       const minutes = absDiffMinutes % 60;
       return `${hours}h ${minutes}m ago`;
+    } else { // More than 24 hours ago
+      const days = Math.floor(absDiffMinutes / 1440);
+      const remainingMinutes = absDiffMinutes % 1440;
+      const hours = Math.floor(remainingMinutes / 60);
+      return `${days}d ${hours}h ago`;
     }
   }
   
   if (diffMinutes < 60) {
     return `In ${diffMinutes}m`;
-  } else {
+  } else if (diffMinutes < 1440) { // Less than 24 hours
     const hours = Math.floor(diffMinutes / 60);
     const minutes = diffMinutes % 60;
     return `In ${hours}h ${minutes}m`;
+  } else { // More than 24 hours
+    const days = Math.floor(diffMinutes / 1440);
+    const remainingMinutes = diffMinutes % 1440;
+    const hours = Math.floor(remainingMinutes / 60);
+    return `In ${days}d ${hours}h`;
   }
 };
 

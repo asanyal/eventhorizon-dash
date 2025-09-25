@@ -1,0 +1,43 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Sky gradient background -->
+  <defs>
+    <linearGradient id="skyGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#87CEEB;stop-opacity:1" />
+      <stop offset="70%" style="stop-color:#FFA07A;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FF6B6B;stop-opacity:1" />
+    </linearGradient>
+    <radialGradient id="sunGradient" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#FFD700;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FFA500;stop-opacity:1" />
+    </radialGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="32" height="32" rx="6" fill="url(#skyGradient)"/>
+  
+  <!-- Horizon line -->
+  <rect x="0" y="20" width="32" height="12" fill="#2D5A27" rx="0"/>
+  
+  <!-- Sun -->
+  <circle cx="16" cy="18" r="6" fill="url(#sunGradient)"/>
+  
+  <!-- Sun rays -->
+  <g stroke="#FFD700" stroke-width="1.5" stroke-linecap="round" opacity="0.8">
+    <line x1="16" y1="6" x2="16" y2="8"/>
+    <line x1="24.5" y1="9.5" x2="23.1" y2="10.9"/>
+    <line x1="26" y1="18" x2="24" y2="18"/>
+    <line x1="8" y1="18" x2="6" y2="18"/>
+    <line x1="8.9" y1="10.9" x2="7.5" y2="9.5"/>
+  </g>
+  
+  <!-- Meditation figure (simple silhouette) -->
+  <g fill="#1a1a1a" opacity="0.6">
+    <!-- Head -->
+    <circle cx="16" cy="26" r="1.5"/>
+    <!-- Body -->
+    <rect x="14.5" y="27" width="3" height="2" rx="1"/>
+    <!-- Legs in lotus position -->
+    <ellipse cx="16" cy="29.5" rx="2.5" ry="1"/>
+  </g>
+</svg>
+

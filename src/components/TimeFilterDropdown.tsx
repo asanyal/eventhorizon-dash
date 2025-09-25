@@ -19,7 +19,7 @@ const timeFilterOptions: { value: TimeFilter; label: string }[] = [
 
 export const TimeFilterDropdown = ({ value, onChange }: TimeFilterDropdownProps) => {
   return (
-    <div className="min-w-[200px]">
+    <div className="min-w-[140px]">
       <Select value={value} onValueChange={onChange}>
         <SelectTrigger className="bg-productivity-surface border-border">
           <SelectValue placeholder="Select time period" />

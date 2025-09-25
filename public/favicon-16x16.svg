@@ -1,0 +1,32 @@
+<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="skyGradient16" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#87CEEB;stop-opacity:1" />
+      <stop offset="70%" style="stop-color:#FFA07A;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FF6B6B;stop-opacity:1" />
+    </linearGradient>
+    <radialGradient id="sunGradient16" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#FFD700;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FFA500;stop-opacity:1" />
+    </radialGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="16" height="16" rx="3" fill="url(#skyGradient16)"/>
+  
+  <!-- Horizon -->
+  <rect x="0" y="10" width="16" height="6" fill="#2D5A27"/>
+  
+  <!-- Sun -->
+  <circle cx="8" cy="9" r="3" fill="url(#sunGradient16)"/>
+  
+  <!-- Simple sun rays -->
+  <g stroke="#FFD700" stroke-width="0.8" stroke-linecap="round" opacity="0.8">
+    <line x1="8" y1="3" x2="8" y2="4"/>
+    <line x1="12" y1="5" x2="11.5" y2="5.5"/>
+    <line x1="13" y1="9" x2="12" y2="9"/>
+    <line x1="4" y1="9" x2="3" y2="9"/>
+    <line x1="4.5" y1="5.5" x2="4" y2="5"/>
+  </g>
+</svg>
+
