@@ -1,17 +1,20 @@
 import { CalendarEvent, TimeFilter } from '../types/calendar';
-import { formatDateTime, getTimeUntilEvent, formatDuration, getUrgencyLevel, getUrgencyColor } from '../utils/dateUtils';
+import { formatDateTime, getTimeUntilEvent, formatDuration, getUrgencyLevel, getUrgencyColor, getIntervalColor } from '../utils/dateUtils';
 import { cn } from '../lib/utils';
 import { useState, useEffect } from 'react';
 import { Bookmark, FileText } from 'lucide-react';
 import { bookmarkApiService } from '../services/bookmarkApi';
 import { CreateBookmarkRequest } from '../types/bookmark';
 import { useTimezone } from '../contexts/TimezoneContext';
+import { useIsMobile } from '../hooks/use-mobile';
 
 interface CalendarEventsListProps {
   events: CalendarEvent[];
   timeFilter: TimeFilter;
   loading?: boolean;
   onBookmarkCreated?: () => void;
+  selectedDate?: string;
+  bookmarkedEventTitles?: string[];
 }
 
 // Helper function to get initials from email
@@ -56,18 +59,28 @@ const getMeetingTypes = (events: CalendarEvent[]) => {
 const getTimeDistribution = (events: CalendarEvent[]) => {
   const morning = events.filter(e => e.startTime.getHours() < 12).length;
   const afternoon = events.filter(e => e.startTime.getHours() >= 12).length;
-  const total = events.length;
   
   return [
-    { label: 'Morning', percentage: total > 0 ? (morning / total * 100).toFixed(1) : '0' },
-    { label: 'Afternoon', percentage: total > 0 ? (afternoon / total * 100).toFixed(1) : '0' }
+    { label: 'Morning:', count: morning },
+    { label: 'Afternoon:', count: afternoon }
   ].filter((time, idx) => (idx === 0 ? morning : afternoon) > 0);
 };
 
-const getFreeBlocks = (events: CalendarEvent[]) => {
+const getFreeBlocks = (events: CalendarEvent[], timeFilter: TimeFilter, selectedDate?: string) => {
   if (events.length === 0) return [];
   
-  const sortedEvents = [...events].sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+  // Only calculate free blocks for single-day views
+  const singleDayFilters = ['today', 'tomorrow', 'day-after', '2-days-after'];
+  const isSingleDay = singleDayFilters.includes(timeFilter) || selectedDate;
+  
+  if (!isSingleDay) return [];
+  
+  // Filter out all-day events as they don't block specific time slots
+  const timedEvents = events.filter(event => !event.all_day);
+  
+  if (timedEvents.length === 0) return [];
+  
+  const sortedEvents = [...timedEvents].sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
   const freeBlocksMap = new Map();
   
   // Check gap from 6:30 AM to first meeting
@@ -98,18 +111,18 @@ const getFreeBlocks = (events: CalendarEvent[]) => {
     const currentEnd = new Date(sortedEvents[i].startTime.getTime() + sortedEvents[i].duration * 60 * 1000);
     const nextStart = sortedEvents[i + 1].startTime;
     
-    // Only consider gaps that end before or at 5pm
-    const endOf5pm = new Date(currentEnd);
-    endOf5pm.setHours(17, 0, 0, 0); // 5:00 PM
+    // Only consider gaps that end before or at 7pm
+    const endOf7pm = new Date(currentEnd);
+    endOf7pm.setHours(19, 0, 0, 0); // 7:00 PM
     
-    if (currentEnd.getTime() >= endOf5pm.getTime()) {
-      continue; // Skip gaps that start after 5pm
+    if (currentEnd.getTime() >= endOf7pm.getTime()) {
+      continue; // Skip gaps that start after 7pm
     }
     
-    // Calculate gap, but cap it at 5pm if it extends beyond
+    // Calculate gap, but cap it at 7pm if it extends beyond
     let gapEndTime = nextStart;
-    if (nextStart.getTime() > endOf5pm.getTime()) {
-      gapEndTime = endOf5pm;
+    if (nextStart.getTime() > endOf7pm.getTime()) {
+      gapEndTime = endOf7pm;
     }
     
     const gapMinutes = Math.floor((gapEndTime.getTime() - currentEnd.getTime()) / (1000 * 60));
@@ -126,16 +139,16 @@ const getFreeBlocks = (events: CalendarEvent[]) => {
     }
   }
   
-  // Check gap from last meeting to 5pm
+  // Check gap from last meeting to 7pm
   if (sortedEvents.length > 0) {
     const lastEvent = sortedEvents[sortedEvents.length - 1];
     const lastEventEnd = new Date(lastEvent.startTime.getTime() + lastEvent.duration * 60 * 1000);
-    const endOf5pm = new Date(lastEventEnd);
-    endOf5pm.setHours(17, 0, 0, 0); // 5:00 PM
+    const endOf7pm = new Date(lastEventEnd);
+    endOf7pm.setHours(19, 0, 0, 0); // 7:00 PM
     
-    // Only consider if last meeting ends before 5pm
-    if (lastEventEnd.getTime() < endOf5pm.getTime()) {
-      const gapMinutes = Math.floor((endOf5pm.getTime() - lastEventEnd.getTime()) / (1000 * 60));
+    // Only consider if last meeting ends before 7pm
+    if (lastEventEnd.getTime() < endOf7pm.getTime()) {
+      const gapMinutes = Math.floor((endOf7pm.getTime() - lastEventEnd.getTime()) / (1000 * 60));
       
       if (gapMinutes >= 30) { // Only show gaps of 30+ minutes
         const time = lastEventEnd.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
@@ -161,12 +174,13 @@ const getFreeBlocks = (events: CalendarEvent[]) => {
     .slice(0, 4); // Limit to 4 blocks
 };
 
-export const CalendarEventsList = ({ events, timeFilter, loading = false, onBookmarkCreated }: CalendarEventsListProps) => {
+export const CalendarEventsList = ({ events, timeFilter, loading = false, onBookmarkCreated, selectedDate, bookmarkedEventTitles = [] }: CalendarEventsListProps) => {
   const [clickedChip, setClickedChip] = useState<string | null>(null);
   const [showPastEvents, setShowPastEvents] = useState(false);
   const [pinnedTooltip, setPinnedTooltip] = useState<string | null>(null);
   const [meetingTypeFilter, setMeetingTypeFilter] = useState<'all' | 'internal' | 'external'>('all');
   const { convertTime } = useTimezone();
+  const isMobile = useIsMobile();
 
   // Handle escape key to close pinned tooltip
   useEffect(() => {
@@ -191,22 +205,30 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
   
   const handleBookmark = async (event: CalendarEvent) => {
     try {
-      const bookmarkData: CreateBookmarkRequest = {
-        date: formatMinimalDate(event.startTime),
-        time: event.startTime.toISOString(), // Store actual event start time instead of relative time
-        event_title: event.title,
-        duration: event.duration,
-        attendees: event.attendees
-      };
+      const isCurrentlyBookmarked = bookmarkedEventTitles.includes(event.title);
       
-      await bookmarkApiService.createBookmark(bookmarkData);
+      if (isCurrentlyBookmarked) {
+        // Unbookmark the event
+        await bookmarkApiService.deleteBookmarkByTitle(event.title);
+      } else {
+        // Bookmark the event
+        const bookmarkData: CreateBookmarkRequest = {
+          date: formatMinimalDate(event.startTime),
+          time: event.startTime.toISOString(), // Store actual event start time instead of relative time
+          event_title: event.title,
+          duration: event.duration,
+          attendees: event.attendees
+        };
+        
+        await bookmarkApiService.createBookmark(bookmarkData);
+      }
       
-      // Notify parent component that a bookmark was created
+      // Notify parent component that bookmark state changed
       if (onBookmarkCreated) {
         onBookmarkCreated();
       }
     } catch (error) {
-      console.error('Error bookmarking event:', error);
+      console.error('Error updating bookmark:', error);
     }
   };
   
@@ -218,23 +240,28 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
   
   const meetingTypes = getMeetingTypes(events);
   const timeDistribution = getTimeDistribution(eventsWithConvertedTimes);
-  const freeBlocks = getFreeBlocks(eventsWithConvertedTimes);
+  const freeBlocks = getFreeBlocks(eventsWithConvertedTimes, timeFilter, selectedDate);
   
   return (
     <div className="space-y-4 max-w-2xl">
       {/* Summary Section */}
       {events.length > 0 && !loading && (
-        <div className="bg-productivity-surface rounded-lg p-4 border border-border">
-          <div className="grid grid-cols-4 gap-6 text-xs">
+        <div className="bg-productivity-surface rounded-lg p-3 md:p-4 border border-border">
+          <div className={cn(
+            "gap-4 md:gap-6 text-xs",
+            isMobile 
+              ? "grid grid-cols-2 sm:grid-cols-4" 
+              : "grid"
+          )} style={!isMobile ? { gridTemplateColumns: '1fr 0.8fr 1fr 1.2fr' } : undefined}>
             {/* Total Events */}
             <div>
-              <div className="text-productivity-text-secondary font-medium mb-2">Total Events</div>
+              <div className="text-productivity-text-secondary font-medium mb-2">Events</div>
               <div className="text-2xl font-bold text-productivity-text-primary">{events.length}</div>
             </div>
             
             {/* Meeting Types */}
             <div>
-              <div className="text-productivity-text-secondary font-medium mb-2">Meeting Types</div>
+              <div className="text-productivity-text-secondary font-medium mb-2">Meetings</div>
               <div className="space-y-1">
                 {meetingTypes.map((type, idx) => (
                   <div key={idx} className="flex items-center gap-1">
@@ -252,15 +279,15 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
             
             {/* Time Distribution */}
             <div>
-              <div className="text-productivity-text-secondary font-medium mb-2">Time Distribution</div>
+              <div className="text-productivity-text-secondary font-medium mb-2">Time of Day</div>
               <div className="space-y-1">
                 {timeDistribution.map((time, idx) => (
                   <div key={idx} className="flex items-center gap-1">
                     <span className="text-sm">
-                      {time.label === 'Morning' ? '🌅' : '🌆'}
+                      {time.label === 'Morning:' ? '🌅' : '🌆'}
                     </span>
                     <span className="text-productivity-text-primary">
-                      {time.label} {time.percentage}%
+                      {time.label} {time.count}
                     </span>
                   </div>
                 ))}
@@ -269,10 +296,10 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
             
             {/* Free Blocks */}
             <div>
-              <div className="text-productivity-text-secondary font-medium mb-2">Free Blocks</div>
+              <div className="text-productivity-text-secondary font-medium mb-2">Free</div>
               <div className="space-y-1">
                 {freeBlocks.length === 0 ? (
-                  <span className="text-productivity-text-tertiary">None found</span>
+                  <span className="text-productivity-text-tertiary">-</span>
                 ) : (
                   freeBlocks.map((block, idx) => {
                     // Check if duration is >= 1 hour
@@ -302,15 +329,20 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
       
       {/* Show/Hide Past Events Toggle and Meeting Type Filter */}
       {events.length > 0 && !loading && (
-        <div className="flex justify-between items-center mb-4">
+        <div className={cn(
+          "mb-4",
+          isMobile 
+            ? "flex flex-col gap-3" 
+            : "flex justify-between items-center"
+        )}>
           {/* Meeting Type Filter */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-productivity-text-secondary font-medium">Filter meetings:</span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-productivity-text-secondary font-medium whitespace-nowrap">Filter meetings:</span>
             <div className="flex gap-2">
               <button
                 onClick={() => setMeetingTypeFilter('all')}
                 className={cn(
-                  "px-3 py-1 text-xs font-medium rounded-full transition-colors",
+                  "px-2 md:px-3 py-1 text-xs font-medium rounded-full transition-colors",
                   meetingTypeFilter === 'all'
                     ? "bg-gray-500 text-white"
                     : "bg-gray-200 text-gray-600 hover:bg-gray-300"
@@ -321,7 +353,7 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
               <button
                 onClick={() => setMeetingTypeFilter('internal')}
                 className={cn(
-                  "px-3 py-1 text-xs font-medium rounded-full transition-colors",
+                  "px-2 md:px-3 py-1 text-xs font-medium rounded-full transition-colors",
                   meetingTypeFilter === 'internal'
                     ? "bg-blue-500 text-white"
                     : "bg-gray-200 text-gray-600 hover:bg-gray-300"
@@ -332,7 +364,7 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
               <button
                 onClick={() => setMeetingTypeFilter('external')}
                 className={cn(
-                  "px-3 py-1 text-xs font-medium rounded-full transition-colors",
+                  "px-2 md:px-3 py-1 text-xs font-medium rounded-full transition-colors",
                   meetingTypeFilter === 'external'
                     ? "bg-orange-500 text-white"
                     : "bg-gray-200 text-gray-600 hover:bg-gray-300"
@@ -357,22 +389,29 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
       )}
       
       {/* Table */}
-      <div className="bg-productivity-surface rounded-lg shadow-md overflow-visible">
-      {/* Table Header */}
-      <div className="bg-table-header px-3 py-2 border-b border-border">
-        <div className="grid grid-cols-12 gap-1 text-xs font-medium text-productivity-text-secondary">
-          <div className="col-span-1"></div>
-          <div className="col-span-2">Date</div>
-          <div className="col-span-2">Time</div>
-          <div className="col-span-3">Event</div>
-          <div className="col-span-1">Dur</div>
-          <div className="col-span-2">Attendees</div>
-          <div className="col-span-1"></div>
+      <div className={cn(
+        "rounded-lg shadow-md overflow-visible",
+        !isMobile && "bg-productivity-surface"
+      )}>
+      {/* Table Header - Desktop Only */}
+      {!isMobile && (
+        <div className="bg-table-header px-3 py-2 border-b border-border">
+          <div className="grid grid-cols-12 gap-1 text-xs font-medium text-productivity-text-secondary">
+            <div className="col-span-1"></div>
+            <div className="col-span-2">Date</div>
+            <div className="col-span-2">Time</div>
+            <div className="col-span-3">Event</div>
+            <div className="col-span-1">Dur</div>
+            <div className="col-span-2">Attendees</div>
+            <div className="col-span-1"></div>
+          </div>
         </div>
-      </div>
+      )}
       
       {/* Events List */}
-      <div className="divide-y divide-border">
+      <div className={cn(
+        !isMobile && "divide-y divide-border"
+      )}>
         {loading ? (
           <div className="px-4 py-8 text-center text-productivity-text-tertiary">
             <div className="flex items-center justify-center gap-2">
@@ -408,7 +447,7 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
                 startTime: convertTime(event.startTime)
               };
               
-              const urgencyLevel = getUrgencyLevel(convertedEvent.startTime);
+              const urgencyLevel = getUrgencyLevel(event.startTime);
               const isEven = index % 2 === 0;
               const isPastEvent = event.startTime.getTime() < new Date().getTime(); // Use original time for past check
               const isTooltipPinned = pinnedTooltip === event.id;
@@ -417,6 +456,9 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
               const futureEvents = events.filter(e => e.startTime.getTime() > new Date().getTime());
               const nextEvent = futureEvents.length > 0 ? futureEvents[0] : null;
               const isNextEvent = nextEvent && event.id === nextEvent.id;
+              
+              // Check if this event is bookmarked
+              const isBookmarked = bookmarkedEventTitles.includes(event.title);
               
               // Check if this is the last event of the day (next event is on a different day)
               // Use the filtered array for proper index comparison
@@ -434,38 +476,199 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
             
             return (
               <div key={event.id}>
-                <div
-                  className={cn(
-                    "px-3 py-2 hover:bg-table-row-hover transition-all duration-200",
-                    isEven ? "bg-productivity-surface" : "bg-table-row-even",
-                    isPastEvent && "opacity-60",
-                    event.all_day && "bg-indigo-50 border-l-4 border-indigo-300"
-                  )}
-                >
-                <div className="grid grid-cols-12 gap-1 items-center">
+                {isMobile ? (
+                  // Mobile Card Layout
+                  <div
+                    className={cn(
+                      "p-3 mb-3 rounded-lg border transition-all duration-200",
+                      isEven ? "bg-productivity-surface" : "bg-table-row-even",
+                      isPastEvent && "opacity-60",
+                      event.all_day && "bg-indigo-50 border-l-4 border-indigo-300",
+                      isNextEvent && "ring-2 ring-red-200 border-red-300"
+                    )}
+                  >
+                    {/* Mobile Header Row */}
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className={cn(
+                            "w-3 h-3 rounded-full flex-shrink-0",
+                            isPastEvent ? "bg-gray-400" : event.all_day ? "bg-indigo-400" : getUrgencyColor(urgencyLevel)
+                          )}
+                        />
+                        <div className="text-xs text-productivity-text-secondary">
+                          {formatMinimalDate(convertedEvent.startTime)}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleBookmark(event)}
+                        className={cn(
+                          "p-1 transition-colors",
+                          isBookmarked 
+                            ? "text-blue-500 hover:text-blue-600" 
+                            : "text-productivity-text-tertiary hover:text-blue-500"
+                        )}
+                      >
+                        <Bookmark className={cn("w-4 h-4", isBookmarked && "fill-current")} />
+                      </button>
+                    </div>
+
+                    {/* Mobile Event Title */}
+                    <div className="mb-2">
+                      <div className={cn(
+                        "text-sm font-medium break-words leading-tight flex items-center gap-2",
+                        isPastEvent && "line-through",
+                        isNextEvent && "font-bold text-red-600"
+                      )}>
+                        <span className="text-productivity-text-primary">
+                          {event.title}
+                        </span>
+                        {isExternalMeeting(event.attendees) && (
+                          <span className="text-orange-500 text-xs font-medium px-1 py-0.5 bg-orange-100 rounded">
+                            EXT
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Mobile Time and Duration Row */}
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "font-mono font-medium",
+                          isNextEvent && "text-red-500",
+                          !isNextEvent && getIntervalColor(getTimeUntilEvent(event.startTime))
+                        )}>
+                          {event.all_day ? "All Day" : getTimeUntilEvent(event.startTime)}
+                        </div>
+                        {!event.all_day && (
+                          <div className="text-productivity-text-tertiary">
+                            {formatDateTime(convertedEvent.startTime).split(' (')[1]?.replace(')', '') || formatDateTime(convertedEvent.startTime)}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-productivity-text-secondary">
+                        {formatDuration(event.duration)}
+                      </div>
+                    </div>
+
+                    {/* Mobile Attendees Row */}
+                    <div className="flex items-center justify-between mt-2">
+                      <div className="flex flex-wrap gap-1">
+                        {event.attendees.filter(isHumanAttendee).slice(0, 8).map((attendee, idx) => {
+                          const isOrganizer = attendee === event.organizerEmail;
+                          const chipId = `${event.id}-${idx}`;
+                          const isClicked = clickedChip === chipId;
+                          
+                          return (
+                            <div key={idx} className="relative">
+                              <div
+                                className={cn(
+                                  "w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-medium text-white cursor-pointer hover:scale-110 transition-transform",
+                                  isOrganizer ? "bg-blue-500" : "bg-gray-400",
+                                  isPastEvent && "opacity-60"
+                                )}
+                                onClick={() => setClickedChip(isClicked ? null : chipId)}
+                              >
+                                {getInitials(attendee)}
+                              </div>
+                              {isClicked && (
+                                <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black text-white text-xs p-1 rounded shadow-lg whitespace-nowrap z-[9999]">
+                                  {attendee}{isOrganizer && " (Org)"}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                        {event.attendees.filter(isHumanAttendee).length > 8 && (
+                          <div className="w-5 h-5 rounded-full bg-gray-300 flex items-center justify-center text-[9px] font-medium text-gray-700">
+                            +{event.attendees.filter(isHumanAttendee).length - 8}
+                          </div>
+                        )}
+                      </div>
+                      
+                      {event.notes && (
+                        <div className="relative group">
+                          <button
+                            onClick={() => handleTooltipClick(event.id)}
+                            className="p-1 text-productivity-text-tertiary hover:text-productivity-text-primary transition-colors"
+                          >
+                            <FileText className="w-4 h-4" />
+                          </button>
+                          
+                          {/* Mobile Notes Tooltip */}
+                          <div
+                            className={cn(
+                              "absolute bottom-full right-0 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded shadow-lg w-64 z-50 transition-opacity duration-200 max-h-32 overflow-y-auto",
+                              isTooltipPinned ? "opacity-100 visible" : "opacity-0 invisible group-hover:opacity-100 group-hover:visible"
+                            )}
+                          >
+                            <div 
+                              dangerouslySetInnerHTML={{ __html: event.notes || 'No notes available' }}
+                              className="prose prose-invert prose-xs max-w-none"
+                            />
+                            {isTooltipPinned && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setPinnedTooltip(null);
+                                }}
+                                className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600 transition-colors"
+                              >
+                                ×
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  // Desktop Table Layout
+                  <div
+                    className={cn(
+                      "px-3 py-2 hover:bg-table-row-hover transition-all duration-200",
+                      isEven ? "bg-productivity-surface" : "bg-table-row-even",
+                      isPastEvent && "opacity-60",
+                      event.all_day && "bg-indigo-50 border-l-4 border-indigo-300"
+                    )}
+                  >
+                  <div className="grid grid-cols-12 gap-1 items-center">
                   {/* Bookmark */}
                   <div className="col-span-1 flex items-center justify-center">
                     <button
                       onClick={() => handleBookmark(event)}
-                      className="p-1 text-productivity-text-tertiary hover:text-blue-500 transition-colors"
-                      title={`Bookmark "${event.title}"`}
+                      className={cn(
+                        "p-1 transition-colors",
+                        isBookmarked 
+                          ? "text-blue-500 hover:text-blue-600" 
+                          : "text-productivity-text-tertiary hover:text-blue-500"
+                      )}
+                      title={isBookmarked ? `Remove "${event.title}" from bookmarks` : `Bookmark "${event.title}"`}
                     >
-                      <Bookmark className="w-3 h-3" />
+                      <Bookmark className={cn("w-3 h-3", isBookmarked && "fill-current")} />
                     </button>
                   </div>
                   
-                  {/* Date */}
+                  {/* Date and Time */}
                   <div className="col-span-2">
-                    <span className={cn(
-                      "text-productivity-text-secondary text-xs",
-                      isPastEvent && "line-through",
-                      isNextEvent && "font-bold"
-                    )}>
-                      {formatMinimalDate(convertedEvent.startTime)}
-                    </span>
+                    <div className="space-y-1">
+                      <span className={cn(
+                        "text-productivity-text-secondary text-xs block",
+                        isPastEvent && "line-through",
+                        isNextEvent && "font-bold"
+                      )}>
+                        {formatMinimalDate(convertedEvent.startTime)}
+                      </span>
+                      {!event.all_day && (
+                        <div className="text-[10px] text-productivity-text-tertiary">
+                          {formatDateTime(convertedEvent.startTime).split(' (')[1]?.replace(')', '') || formatDateTime(convertedEvent.startTime)}
+                        </div>
+                      )}
+                    </div>
                   </div>
                   
-                  {/* Time */}
+                  {/* Time (Urgency and Countdown) */}
                   <div className="col-span-2 flex items-center gap-2">
                     <div 
                       className={cn(
@@ -483,17 +686,13 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
                       {event.all_day ? (
                         <div className="font-medium">All Day</div>
                       ) : (
-                        <>
-                          <div className={cn(
-                            "font-mono",
-                            isNextEvent && "text-red-500"
-                          )}>
-                            {getTimeUntilEvent(convertedEvent.startTime)}
-                          </div>
-                          <div className="text-[10px] text-productivity-text-tertiary">
-                            {formatDateTime(convertedEvent.startTime).split(' (')[1]?.replace(')', '') || formatDateTime(convertedEvent.startTime)}
-                          </div>
-                        </>
+                        <div className={cn(
+                          "font-mono",
+                          isNextEvent && "text-red-500",
+                          !isNextEvent && getIntervalColor(getTimeUntilEvent(event.startTime))
+                        )}>
+                          {getTimeUntilEvent(event.startTime)}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -608,9 +807,10 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
                       </div>
                     )}
                   </div>
-                </div>
-                </div>
-                {isLastOfDay && (
+                  </div>
+                  </div>
+                )}
+                {isLastOfDay && !isMobile && (
                   <div className="h-px bg-black w-full"></div>
                 )}
               </div>

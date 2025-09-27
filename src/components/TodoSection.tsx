@@ -150,10 +150,50 @@ export const TodoSection = () => {
             You're all done! Here's a plant 🪴
           </p>
         ) : (
-          todos.map((todo, index) => (
+          todos.map((todo, index) => {
+            // Create urgency-based styling
+            const getUrgencyStyles = (todo: TodoItem) => {
+              const isHighPriority = todo.priority === 'high';
+              const isHighUrgency = todo.urgency === 'high';
+              const isCritical = isHighPriority && isHighUrgency;
+              
+              if (isCritical) {
+                return {
+                  container: "bg-gradient-to-r from-red-50 via-red-25 to-orange-50 border-red-200 hover:from-red-100 hover:via-red-50 hover:to-orange-100 shadow-sm hover:shadow-md border-l-4 border-l-red-400",
+                  pulse: "",
+                  glow: "shadow-red-100 hover:shadow-red-200"
+                };
+              } else if (isHighPriority || isHighUrgency) {
+                return {
+                  container: "bg-gradient-to-r from-orange-50 via-yellow-25 to-orange-50 border-orange-200 hover:from-orange-100 hover:via-yellow-50 hover:to-orange-100 shadow-sm hover:shadow-md border-l-4 border-l-orange-400",
+                  pulse: "",
+                  glow: "shadow-orange-100 hover:shadow-orange-200"
+                };
+              } else {
+                return {
+                  container: "bg-gradient-to-r from-blue-25 via-slate-25 to-blue-25 border-slate-200 hover:from-blue-50 hover:via-slate-50 hover:to-blue-50 border-l-4 border-l-blue-300",
+                  pulse: "",
+                  glow: "shadow-slate-100 hover:shadow-slate-200"
+                };
+              }
+            };
+            
+            const urgencyStyles = getUrgencyStyles(todo);
+            
+            return (
             <div
               key={todo.id || index}
-              className="flex items-center gap-2 p-2 bg-background rounded border border-border hover:bg-table-row-hover transition-colors"
+              className={cn(
+                "group flex items-center gap-2 p-3 rounded-lg border transition-all duration-300 transform hover:scale-[1.02] hover:-translate-y-0.5",
+                urgencyStyles.container,
+                urgencyStyles.pulse,
+                urgencyStyles.glow
+              )}
+              style={{
+                backgroundImage: todo.priority === 'high' && todo.urgency === 'high' 
+                  ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.03) 0%, rgba(251, 146, 60, 0.03) 100%)'
+                  : undefined
+              }}
             >
               {/* Date */}
               {todo.created_at && (
@@ -164,41 +204,54 @@ export const TodoSection = () => {
 
               {/* Title */}
               <div className="flex-1 min-w-0">
-                <div className="text-productivity-text-primary text-xs break-words leading-tight">
+                <div className={cn(
+                  "text-xs break-words leading-tight font-medium transition-colors",
+                  todo.priority === 'high' && todo.urgency === 'high' 
+                    ? "text-red-700 group-hover:text-red-800" 
+                    : (todo.priority === 'high' || todo.urgency === 'high')
+                    ? "text-orange-700 group-hover:text-orange-800"
+                    : "text-productivity-text-primary group-hover:text-slate-700"
+                )}>
                   {todo.title}
                 </div>
               </div>
 
               {/* Priority Chip */}
               <span className={cn(
-                "px-2 py-1 text-xs font-medium rounded-full",
+                "px-2 py-1 text-xs font-medium rounded-full transition-all duration-200 transform group-hover:scale-105",
                 todo.priority === 'high' 
-                  ? "bg-red-500 text-white" 
-                  : "bg-gray-200 text-gray-600"
+                  ? "bg-red-500 text-white shadow-sm group-hover:bg-red-600 group-hover:shadow-md" 
+                  : "bg-slate-200 text-slate-600 group-hover:bg-slate-300"
               )}>
-                HP
+                {todo.priority === 'high' ? '●' : '○'}
               </span>
 
               {/* Urgency Chip */}
               <span className={cn(
-                "px-2 py-1 text-xs font-medium rounded-full",
+                "px-2 py-1 text-xs font-medium rounded-full transition-all duration-200 transform group-hover:scale-105",
                 todo.urgency === 'high' 
-                  ? "bg-orange-500 text-white" 
-                  : "bg-gray-200 text-gray-600"
+                  ? "bg-orange-500 text-white shadow-sm group-hover:bg-orange-600 group-hover:shadow-md" 
+                  : "bg-slate-200 text-slate-600 group-hover:bg-slate-300"
               )}>
-                U
+                {todo.urgency === 'high' ? '▲' : '▽'}
               </span>
 
               {/* Delete Button */}
               <button
                 onClick={() => handleDelete(todo.title)}
-                className="p-1 text-productivity-text-tertiary hover:text-red-500 transition-colors"
-                title={`Delete "${todo.title}"`}
+                className={cn(
+                  "p-2 rounded-full transition-all duration-200 transform hover:scale-110 group-hover:bg-white/50",
+                  todo.priority === 'high' && todo.urgency === 'high'
+                    ? "text-red-400 hover:text-red-600 hover:bg-red-50"
+                    : "text-productivity-text-tertiary hover:text-red-500 hover:bg-red-50"
+                )}
+                title={`Complete "${todo.title}" - Get it done! 💪`}
               >
-                <X className="w-3 h-3" />
+                <X className="w-4 h-4" />
               </button>
             </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

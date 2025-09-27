@@ -9,12 +9,21 @@ interface UseCalendarEventsResult {
   refetch: () => void;
 }
 
-export const useCalendarEvents = (timeFilter: TimeFilter): UseCalendarEventsResult => {
+export const useCalendarEvents = (timeFilter: TimeFilter, specificDate?: string): UseCalendarEventsResult => {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const getDateRange = (filter: TimeFilter) => {
+    // If a specific date is provided, use it instead of the filter
+    if (specificDate) {
+      const selectedDateObj = new Date(specificDate);
+      return {
+        start: specificDate,
+        end: specificDate
+      };
+    }
+    
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
@@ -46,8 +55,10 @@ export const useCalendarEvents = (timeFilter: TimeFilter): UseCalendarEventsResu
         end = new Date(today.getTime() + (6 - today.getDay()) * 24 * 60 * 60 * 1000); // End of week (Sunday)
         break;
       case 'next-week':
-        start = new Date(today.getTime() + (7 - today.getDay()) * 24 * 60 * 60 * 1000);
-        end = new Date(start.getTime() + 6 * 24 * 60 * 60 * 1000); // End of next week
+        // Calculate Monday of next week
+        const daysUntilNextMonday = today.getDay() === 0 ? 1 : (8 - today.getDay()); // If Sunday, next Monday is 1 day away, otherwise 8 - current day
+        start = new Date(today.getTime() + daysUntilNextMonday * 24 * 60 * 60 * 1000);
+        end = new Date(start.getTime() + 6 * 24 * 60 * 60 * 1000); // End of next week (Sunday)
         break;
       case 'this-month':
         start = new Date(today); // Start from today, not beginning of month
@@ -92,9 +103,10 @@ export const useCalendarEvents = (timeFilter: TimeFilter): UseCalendarEventsResu
         transformApiEvent(apiEvent, index)
       );
       
-      // For single-day filters, filter events to only include the target date
+      // Filter events to only include events within the calculated date range
       let filteredEvents = transformedEvents;
       if (['today', 'tomorrow', 'day-after', '2-days-after'].includes(timeFilter)) {
+        // For single-day filters, filter events to only include the target date
         const targetDateStr = dateRange.start; // The target date in YYYY-MM-DD format
         filteredEvents = transformedEvents.filter(event => {
           const eventDateStr = event.startTime.toISOString().split('T')[0];
@@ -105,6 +117,19 @@ export const useCalendarEvents = (timeFilter: TimeFilter): UseCalendarEventsResu
           return isTargetDate;
         });
         console.log(`🎯 After filtering to target date ${targetDateStr}: ${filteredEvents.length} events`);
+      } else {
+        // For multi-day filters, filter events to be within the date range
+        const startDateStr = dateRange.start;
+        const endDateStr = dateRange.end;
+        filteredEvents = transformedEvents.filter(event => {
+          const eventDateStr = event.startTime.toISOString().split('T')[0];
+          const isWithinRange = eventDateStr >= startDateStr && eventDateStr <= endDateStr;
+          if (!isWithinRange) {
+            console.log(`🚫 Filtering out event "${event.title}" (${eventDateStr}) - outside range (${startDateStr} to ${endDateStr})`);
+          }
+          return isWithinRange;
+        });
+        console.log(`🎯 After filtering to date range ${startDateStr} to ${endDateStr}: ${filteredEvents.length} events`);
       }
       
       // Sort events by start time
@@ -122,7 +147,7 @@ export const useCalendarEvents = (timeFilter: TimeFilter): UseCalendarEventsResu
 
   useEffect(() => {
     fetchEvents();
-  }, [timeFilter]);
+  }, [timeFilter, specificDate]);
 
   return {
     events,

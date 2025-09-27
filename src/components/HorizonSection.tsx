@@ -399,7 +399,7 @@ export const HorizonSection = () => {
                     : "bg-gray-200 text-gray-600 hover:bg-gray-300"
                 )}
               >
-                Others
+                On my mind
               </button>
             </div>
           </div>
@@ -426,7 +426,7 @@ export const HorizonSection = () => {
                 <div key={horizonId} className="space-y-1">
                   <div
                     className={cn(
-                      "flex items-center gap-2 p-2 rounded border border-border hover:bg-table-row-hover transition-colors",
+                      "flex items-center p-2 rounded border border-border hover:bg-table-row-hover transition-colors",
                       horizon.type === 'Event' 
                         ? "bg-orange-50 hover:bg-orange-100"
                         : horizon.type === 'Meeting'
@@ -434,82 +434,90 @@ export const HorizonSection = () => {
                         : "bg-background"
                     )}
                   >
-                    {/* Date */}
-                    {(() => {
-                      const validHorizonDate = horizon.horizon_date && horizon.horizon_date !== 'null' ? horizon.horizon_date : null;
-                      const dateToShow = validHorizonDate || horizon.created_at;
-                      return dateToShow && (
-                        <div className="flex-shrink-0 text-xs text-productivity-text-tertiary">
-                          {formatDate(dateToShow, convertTime)}
-                        </div>
-                      );
-                    })()}
+                    {/* Left section with tight spacing - Date, Interval, Help, Title */}
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      {/* Date */}
+                      <div className="flex-shrink-0 text-xs text-productivity-text-tertiary w-16">
+                        {(() => {
+                          const validHorizonDate = horizon.horizon_date && horizon.horizon_date !== 'null' ? horizon.horizon_date : null;
+                          const dateToShow = validHorizonDate || horizon.created_at;
+                          return dateToShow ? formatDate(dateToShow, convertTime) : '';
+                        })()}
+                      </div>
 
-                    {/* Title with countdown and tooltip help icon */}
-                    <div className="flex-1 min-w-0 flex items-center gap-2">
-                      {/* Days Until Date (for any horizon with a horizon_date) - with consistent spacing */}
-                      <div className="flex-shrink-0 text-xs text-red-500 font-medium min-w-[60px]">
+                      {/* Days Until Date */}
+                      <div className="flex-shrink-0 text-xs text-red-500 font-medium w-20">
                         {horizon.horizon_date && horizon.horizon_date !== 'null' 
                           ? getDaysUntilEvent(horizon.horizon_date, convertTime)
                           : ''
                         }
                       </div>
-                      
-                      <div className="relative flex-shrink-0 group">
-                        <button
-                          onClick={() => handleTooltipClick(horizonId)}
-                          className="p-1 text-productivity-text-tertiary hover:text-productivity-text-primary transition-colors"
-                          title="Show details"
-                        >
-                          <HelpCircle className="w-3 h-3" />
-                        </button>
-                        
-                        {/* Tooltip */}
-                        <div
-                          className={cn(
-                            "absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-4 py-3 bg-gray-800 text-white text-xs rounded shadow-lg whitespace-pre-wrap w-72 z-50 transition-opacity duration-200",
-                            isTooltipPinned ? "opacity-100 visible" : "opacity-0 invisible group-hover:opacity-100 group-hover:visible"
-                          )}
-                        >
-                          {horizon.details || 'No details available'}
-                          {isTooltipPinned && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setPinnedTooltip(null);
-                              }}
-                              className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600 transition-colors"
-                              title="Close"
-                            >
-                              ×
-                            </button>
-                          )}
-                          {/* Tooltip arrow */}
-                          <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+
+                      {/* Help/Details Icon - moved before title */}
+                      <div className="flex-shrink-0">
+                        <div className="relative group">
+                          <button
+                            onClick={() => handleTooltipClick(horizonId)}
+                            className="p-1 text-productivity-text-tertiary hover:text-productivity-text-primary transition-colors"
+                            title="Show details"
+                          >
+                            <HelpCircle className="w-3 h-3" />
+                          </button>
+                          
+                          {/* Tooltip */}
+                          <div
+                            className={cn(
+                              "absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-4 py-3 bg-gray-800 text-white text-xs rounded shadow-lg whitespace-pre-wrap w-72 z-50 transition-opacity duration-200",
+                              isTooltipPinned ? "opacity-100 visible" : "opacity-0 invisible group-hover:opacity-100 group-hover:visible"
+                            )}
+                          >
+                            {horizon.details || 'No details available'}
+                            {isTooltipPinned && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setPinnedTooltip(null);
+                                }}
+                                className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600 transition-colors"
+                                title="Close"
+                              >
+                                ×
+                              </button>
+                            )}
+                            {/* Tooltip arrow */}
+                            <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                          </div>
                         </div>
                       </div>
-                      <div className="text-productivity-text-primary text-xs break-words leading-tight">
-                        {horizon.title}
+
+                      {/* Title */}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-productivity-text-primary text-xs break-words leading-tight">
+                          {horizon.title}
+                        </div>
                       </div>
                     </div>
 
-                    {/* Edit Button */}
-                    <button
-                      onClick={() => handleEditHorizon(horizon)}
-                      className="p-1 text-productivity-text-tertiary hover:text-blue-500 transition-colors"
-                      title={`Edit "${horizon.title}"`}
-                    >
-                      <Pencil className="w-3 h-3" />
-                    </button>
+                    {/* Right section with action buttons */}
+                    <div className="flex items-center gap-2 ml-4">
+                      {/* Edit Button */}
+                      <button
+                        onClick={() => handleEditHorizon(horizon)}
+                        className="p-1 text-productivity-text-tertiary hover:text-blue-500 transition-colors"
+                        title={`Edit "${horizon.title}"`}
+                      >
+                        <Pencil className="w-3 h-3" />
+                      </button>
 
-                    {/* Delete Button */}
-                    <button
-                      onClick={() => handleDelete(horizon.title)}
-                      className="p-1 text-productivity-text-tertiary hover:text-red-500 transition-colors"
-                      title={`Delete "${horizon.title}"`}
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
+                      {/* Delete Button */}
+                      <button
+                        onClick={() => handleDelete(horizon.title)}
+                        className="p-1 text-productivity-text-tertiary hover:text-red-500 transition-colors"
+                        title={`Delete "${horizon.title}"`}
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               );

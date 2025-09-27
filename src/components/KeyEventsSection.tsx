@@ -4,6 +4,7 @@ import { bookmarkApiService } from '../services/bookmarkApi';
 import { cn } from '../lib/utils';
 import { X, RefreshCw, BookmarkCheck } from 'lucide-react';
 import { useTimezone } from '../contexts/TimezoneContext';
+import { getIntervalColor } from '../utils/dateUtils';
 
 interface KeyEventsSectionProps {
   refreshTrigger?: number;
@@ -83,6 +84,7 @@ export const KeyEventsSection = ({ refreshTrigger }: KeyEventsSectionProps) => {
       const diffMinutes = Math.floor(diffMs / (1000 * 60));
       
       if (diffMinutes <= 0) {
+        // Keep existing "ago" logic unchanged
         const pastMinutes = Math.abs(diffMinutes);
         if (pastMinutes < 60) {
           return `${pastMinutes}m ago`;
@@ -97,18 +99,43 @@ export const KeyEventsSection = ({ refreshTrigger }: KeyEventsSectionProps) => {
           const remainingHours = Math.floor((pastMinutes % (24 * 60)) / 60);
           return remainingHours > 0 ? `${pastDays}d ${remainingHours}h ago` : `${pastDays}d ago`;
         }
-      } else if (diffMinutes < 60) {
+      }
+      
+      // Future events - apply new rules
+      if (diffMinutes <= 60) {
+        // Events 60 minutes or less - show minutes
         return `In ${diffMinutes}m`;
-      } else if (diffMinutes < 24 * 60) {
-        // Less than 24 hours - show hours and minutes
-        const hours = Math.floor(diffMinutes / 60);
+      } else if (diffMinutes < 24 * 60) { // Less than 24 hours
+        const totalHours = diffMinutes / 60;
+        const wholeHours = Math.floor(totalHours);
         const minutes = diffMinutes % 60;
-        return minutes > 0 ? `In ${hours}h ${minutes}m` : `In ${hours}h`;
-      } else {
-        // More than 24 hours - show days and hours
-        const days = Math.floor(diffMinutes / (24 * 60));
-        const remainingHours = Math.floor((diffMinutes % (24 * 60)) / 60);
-        return remainingHours > 0 ? `In ${days}d ${remainingHours}h` : `In ${days}d`;
+        
+        if (minutes <= 15) {
+          // 0-15 minutes: round down to whole hour
+          return `In ${wholeHours} hours`;
+        } else if (minutes <= 45) {
+          // 15-45 minutes: show as .5 hours
+          return `In ${wholeHours}.5 hours`;
+        } else {
+          // 45-60 minutes: round up to next whole hour
+          return `In ${wholeHours + 1} hours`;
+        }
+      } else { // More than 24 hours (≥ 1440 minutes)
+        const totalHours = diffMinutes / 60;
+        const totalDays = totalHours / 24;
+        const wholeDays = Math.floor(totalDays);
+        const remainingHours = totalHours % 24;
+        
+        if (remainingHours <= 6) {
+          // 0-6 hours: round down to whole day
+          return `In ${wholeDays} days`;
+        } else if (remainingHours <= 18) {
+          // 6-18 hours: show as .5 days
+          return `In ${wholeDays}.5 days`;
+        } else {
+          // 18-24 hours: round up to next whole day
+          return `In ${wholeDays + 1} days`;
+        }
       }
     } catch (error) {
       // Fallback to original time if calculation fails
@@ -204,7 +231,7 @@ export const KeyEventsSection = ({ refreshTrigger }: KeyEventsSectionProps) => {
         <div className="flex items-center gap-3">
           <h3 className="text-lg font-semibold text-productivity-text-primary flex items-center gap-2">
             <BookmarkCheck className="w-5 h-5 text-blue-500" />
-            Key Events
+            Bookmarked Events
           </h3>
           {/* Event count badge */}
           {!loading && (
@@ -267,14 +294,14 @@ export const KeyEventsSection = ({ refreshTrigger }: KeyEventsSectionProps) => {
             <div
               key={bookmark.id || index}
               className={cn(
-                "flex items-center gap-2 p-3 rounded border transition-colors",
+                "grid grid-cols-12 gap-3 items-center p-3 rounded border transition-colors",
                 isToday 
                   ? "bg-purple-50 border-purple-200 hover:bg-purple-100"
                   : "bg-blue-50 border-blue-200 hover:bg-blue-100"
               )}
             >
               {/* Date */}
-              <div className="flex-shrink-0 text-xs text-productivity-text-tertiary font-medium">
+              <div className="col-span-2 text-xs text-productivity-text-tertiary font-medium">
                 <div>{bookmark.date}</div>
                 {eventTime && (
                   <div className="text-[10px] text-productivity-text-secondary">{eventTime}</div>
@@ -282,37 +309,46 @@ export const KeyEventsSection = ({ refreshTrigger }: KeyEventsSectionProps) => {
               </div>
 
               {/* Time */}
-              <div className="flex-shrink-0 text-xs text-red-500 font-mono font-medium">
+              <div className={cn(
+                "col-span-2 text-xs font-mono font-medium",
+                getIntervalColor(realtimeCountdown) || "text-red-500"
+              )}>
                 {realtimeCountdown}
               </div>
 
               {/* Event Title */}
-              <div className="flex-1 min-w-0">
+              <div className="col-span-5 min-w-0">
                 <div className="text-productivity-text-primary text-xs font-medium break-words leading-tight">
                   {bookmark.event_title}
                 </div>
               </div>
 
               {/* Duration */}
-              <div className="flex-shrink-0 text-xs text-productivity-text-tertiary">
+              <div className="col-span-1 text-xs text-productivity-text-tertiary text-center">
                 {bookmark.duration}min
               </div>
 
               {/* Attendees Count */}
-              {bookmark.attendees && bookmark.attendees.length > 0 && (
-                <div className="flex-shrink-0 text-xs text-productivity-text-tertiary">
-                  {bookmark.attendees.length} attendee{bookmark.attendees.length !== 1 ? 's' : ''}
-                </div>
-              )}
+              <div className="col-span-1 text-xs text-productivity-text-tertiary text-center">
+                {bookmark.attendees && bookmark.attendees.length > 0 ? (
+                  <span title={`${bookmark.attendees.length} attendee${bookmark.attendees.length !== 1 ? 's' : ''}`}>
+                    {bookmark.attendees.length}
+                  </span>
+                ) : (
+                  <span className="text-productivity-text-tertiary">-</span>
+                )}
+              </div>
 
               {/* Unbookmark Button */}
-              <button
-                onClick={() => handleUnbookmark(bookmark.event_title)}
-                className="p-1 text-productivity-text-tertiary hover:text-red-500 transition-colors"
-                title={`Remove "${bookmark.event_title}" from key events`}
-              >
-                <X className="w-3 h-3" />
-              </button>
+              <div className="col-span-1 flex justify-center">
+                <button
+                  onClick={() => handleUnbookmark(bookmark.event_title)}
+                  className="p-1 text-productivity-text-tertiary hover:text-red-500 transition-colors"
+                  title={`Remove "${bookmark.event_title}" from key events`}
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
             </div>
             );
           })

@@ -8,7 +8,6 @@ export const TimezoneSelector = () => {
   return (
     <div className="flex items-center justify-end gap-2">
       <Clock className="w-4 h-4 text-productivity-text-secondary" />
-      <span className="text-xs text-productivity-text-secondary font-medium">Timezone:</span>
       <Select value={selectedTimezone} onValueChange={setTimezone}>
         <SelectTrigger className="w-[140px] h-8 text-xs bg-productivity-surface border-border">
           <SelectValue />

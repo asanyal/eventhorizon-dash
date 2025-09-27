@@ -4,6 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 interface TimeFilterDropdownProps {
   value: TimeFilter;
   onChange: (value: TimeFilter) => void;
+  isDateSelected?: boolean;
 }
 
 const timeFilterOptions: { value: TimeFilter; label: string }[] = [
@@ -17,12 +18,12 @@ const timeFilterOptions: { value: TimeFilter; label: string }[] = [
   { value: 'next-month', label: 'Next Month' },
 ];
 
-export const TimeFilterDropdown = ({ value, onChange }: TimeFilterDropdownProps) => {
+export const TimeFilterDropdown = ({ value, onChange, isDateSelected = false }: TimeFilterDropdownProps) => {
   return (
     <div className="min-w-[140px]">
-      <Select value={value} onValueChange={onChange}>
+      <Select value={isDateSelected ? '' : value} onValueChange={onChange}>
         <SelectTrigger className="bg-productivity-surface border-border">
-          <SelectValue placeholder="Select time period" />
+          <SelectValue placeholder={isDateSelected ? "Date selected" : "Select time period"} />
         </SelectTrigger>
         <SelectContent className="bg-productivity-surface border-border">
           {timeFilterOptions.map((option) => (
