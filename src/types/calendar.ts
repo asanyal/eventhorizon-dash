@@ -6,6 +6,8 @@ export interface CalendarEvent {
   description?: string;
   attendees: string[];
   organizerEmail: string;
+  all_day?: boolean;
+  notes?: string; // HTML content
 }
 
 // API Response types
@@ -18,6 +20,8 @@ export interface ApiEvent {
   time_until: string;
   attendees: string[];
   organizer_email: string;
+  all_day?: boolean;
+  notes?: string; // HTML content
 }
 
 export type TimeFilter = 

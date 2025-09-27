@@ -3,6 +3,9 @@ import { CalendarEventsList } from '../components/CalendarEventsList';
 import { TimeFilterDropdown } from '../components/TimeFilterDropdown';
 import { TodoSection } from '../components/TodoSection';
 import { HorizonSection } from '../components/HorizonSection';
+import { KeyEventsSection } from '../components/KeyEventsSection';
+import { TimezoneSelector } from '../components/TimezoneSelector';
+import { TimezoneProvider, useTimezone } from '../contexts/TimezoneContext';
 import { useCalendarEvents } from '../hooks/useCalendarEvents';
 import { TimeFilter, CalendarEvent } from '../types/calendar';
 import { getTimeUntilEvent } from '../utils/dateUtils';
@@ -11,9 +14,10 @@ import { Button } from '../components/ui/button';
 import { Alert, AlertDescription } from '../components/ui/alert';
 
 // Helper function to get greeting based on time of day
-const getGreeting = (time: Date) => {
-  const hour = time.getHours();
-  const timeString = time.toLocaleTimeString('en-US', { 
+const getGreeting = (time: Date, convertTime: (date: Date) => Date) => {
+  const localTime = convertTime(time);
+  const hour = localTime.getHours();
+  const timeString = localTime.toLocaleTimeString('en-US', { 
     hour: 'numeric', 
     minute: '2-digit', 
     hour12: true 
@@ -29,7 +33,7 @@ const getGreeting = (time: Date) => {
 };
 
 // Helper function to get the next meeting info
-const getNextMeetingInfo = (todayEvents: CalendarEvent[], tomorrowEvents: CalendarEvent[]): string => {
+const getNextMeetingInfo = (todayEvents: CalendarEvent[], tomorrowEvents: CalendarEvent[], convertTime: (date: Date) => Date): string => {
   const now = new Date();
   
   // Helper function to truncate title
@@ -42,7 +46,8 @@ const getNextMeetingInfo = (todayEvents: CalendarEvent[], tomorrowEvents: Calend
   
   if (futureTodayEvents.length > 0) {
     const nextEvent = futureTodayEvents[0]; // Events should be sorted by time
-    const timeUntil = getTimeUntilEvent(nextEvent.startTime);
+    const convertedStartTime = convertTime(nextEvent.startTime);
+    const timeUntil = getTimeUntilEvent(convertedStartTime);
     const truncatedTitle = truncateTitle(nextEvent.title);
     return `Your next meeting is "${truncatedTitle}" ${timeUntil.toLowerCase()}.`;
   }
@@ -50,7 +55,8 @@ const getNextMeetingInfo = (todayEvents: CalendarEvent[], tomorrowEvents: Calend
   // No more meetings today, check tomorrow's first meeting
   if (tomorrowEvents.length > 0) {
     const firstTomorrowEvent = tomorrowEvents[0]; // First meeting tomorrow
-    const timeUntil = getTimeUntilEvent(firstTomorrowEvent.startTime);
+    const convertedStartTime = convertTime(firstTomorrowEvent.startTime);
+    const timeUntil = getTimeUntilEvent(convertedStartTime);
     const truncatedTitle = truncateTitle(firstTomorrowEvent.title);
     return `Your next meeting is "${truncatedTitle}" ${timeUntil.toLowerCase()}.`;
   }
@@ -58,9 +64,11 @@ const getNextMeetingInfo = (todayEvents: CalendarEvent[], tomorrowEvents: Calend
   return "No upcoming meetings found.";
 };
 
-const Index = () => {
+const IndexContent = () => {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('today');
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [bookmarkRefreshTrigger, setBookmarkRefreshTrigger] = useState(0);
+  const { convertTime } = useTimezone();
   const { events, loading, error, refetch } = useCalendarEvents(timeFilter);
   
   // Get today's and tomorrow's events for next meeting info
@@ -101,25 +109,33 @@ const Index = () => {
     setTimeFilter(timeFilterOptions[newIndex]);
   };
 
+  const handleBookmarkCreated = () => {
+    // Trigger refresh of KeyEventsSection
+    setBookmarkRefreshTrigger(prev => prev + 1);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <Calendar className="w-8 h-8 text-primary" />
-            <h1 className="text-3xl font-bold text-productivity-text-primary">
-              Wake Up
-            </h1>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-3">
+              <Calendar className="w-8 h-8 text-primary" />
+              <h1 className="text-3xl font-bold text-productivity-text-primary">
+                Wake Up
+              </h1>
+            </div>
+            <TimezoneSelector />
           </div>
           <p className="text-productivity-text-secondary mb-4">
             Each moment is wide open.
           </p>
           <div className="text-2xl font-semibold text-productivity-text-primary">
-            {getGreeting(currentTime)}
+            {getGreeting(currentTime, convertTime)}
           </div>
           <div className="text-lg text-productivity-text-secondary mt-2">
-            {getNextMeetingInfo(todayEvents, tomorrowEvents)}
+            {getNextMeetingInfo(todayEvents, tomorrowEvents, convertTime)}
           </div>
         </div>
 
@@ -188,17 +204,27 @@ const Index = () => {
               events={events} 
               timeFilter={timeFilter}
               loading={loading}
+              onBookmarkCreated={handleBookmarkCreated}
             />
           </div>
 
-          {/* Right Column - TODO Section and Horizons */}
+          {/* Right Column - Key Events, TODO Section and Horizons */}
           <div className="space-y-6">
+            <KeyEventsSection refreshTrigger={bookmarkRefreshTrigger} />
             <TodoSection />
             <HorizonSection />
           </div>
         </div>
       </div>
     </div>
+  );
+};
+
+const Index = () => {
+  return (
+    <TimezoneProvider>
+      <IndexContent />
+    </TimezoneProvider>
   );
 };
 

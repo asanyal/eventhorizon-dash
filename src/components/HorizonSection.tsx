@@ -8,23 +8,26 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Textarea } from './ui/textarea';
 import { Input } from './ui/input';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
+import { useTimezone } from '../contexts/TimezoneContext';
 
-// Helper function to format date as "Sep 23"
-const formatDate = (dateString: string): string => {
+// Helper function to format date as "Sep 23" with timezone conversion
+const formatDate = (dateString: string, convertTime: (date: Date) => Date): string => {
   // Handle date-only strings (YYYY-MM-DD) as local dates to avoid timezone issues
   if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
     const [year, month, day] = dateString.split('-').map(Number);
     const date = new Date(year, month - 1, day); // month is 0-indexed
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const convertedDate = convertTime(date);
+    return convertedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
   
   // Handle full datetime strings normally
   const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const convertedDate = convertTime(date);
+  return convertedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
-// Helper function to calculate days until event
-const getDaysUntilEvent = (dateString: string): string => {
+// Helper function to calculate days until event with timezone conversion
+const getDaysUntilEvent = (dateString: string, convertTime: (date: Date) => Date): string => {
   let eventDate: Date;
   
   // Handle date-only strings (YYYY-MM-DD) as local dates
@@ -36,10 +39,13 @@ const getDaysUntilEvent = (dateString: string): string => {
   }
   
   const today = new Date();
-  today.setHours(0, 0, 0, 0); // Set to start of day for accurate comparison
-  eventDate.setHours(0, 0, 0, 0); // Set to start of day for accurate comparison
+  const convertedToday = convertTime(today);
+  const convertedEventDate = convertTime(eventDate);
   
-  const diffTime = eventDate.getTime() - today.getTime();
+  convertedToday.setHours(0, 0, 0, 0); // Set to start of day for accurate comparison
+  convertedEventDate.setHours(0, 0, 0, 0); // Set to start of day for accurate comparison
+  
+  const diffTime = convertedEventDate.getTime() - convertedToday.getTime();
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   
   if (diffDays === 0) {
@@ -66,12 +72,25 @@ export const HorizonSection = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingHorizon, setEditingHorizon] = useState<HorizonItem | null>(null);
   const [originalTitle, setOriginalTitle] = useState('');
-  const [expandedDetails, setExpandedDetails] = useState<Set<string>>(new Set());
   const [selectedFilters, setSelectedFilters] = useState<Set<'Event' | 'Meeting' | 'Others'>>(new Set());
+  const [pinnedTooltip, setPinnedTooltip] = useState<string | null>(null);
+  const { convertTime } = useTimezone();
 
   // Fetch horizons on component mount
   useEffect(() => {
     fetchHorizons();
+  }, []);
+
+  // Handle escape key to close pinned tooltip
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setPinnedTooltip(null);
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
   }, []);
 
   const fetchHorizons = async () => {
@@ -176,16 +195,12 @@ export const HorizonSection = () => {
     }
   };
 
-  const toggleDetails = (horizonId: string) => {
-    setExpandedDetails(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(horizonId)) {
-        newSet.delete(horizonId);
-      } else {
-        newSet.add(horizonId);
-      }
-      return newSet;
-    });
+  const handleTooltipClick = (horizonId: string) => {
+    if (pinnedTooltip === horizonId) {
+      setPinnedTooltip(null); // Unpin if already pinned
+    } else {
+      setPinnedTooltip(horizonId); // Pin this tooltip
+    }
   };
 
   const toggleFilter = (filterType: 'Event' | 'Meeting' | 'Others') => {
@@ -200,12 +215,28 @@ export const HorizonSection = () => {
     });
   };
 
+  // Calculate filtered horizons for use in header count and render logic
+  const filteredHorizons = selectedFilters.size === 0 ? horizons : horizons.filter(horizon => {
+    if (selectedFilters.has('Event') && horizon.type === 'Event') return true;
+    if (selectedFilters.has('Meeting') && horizon.type === 'Meeting') return true;
+    if (selectedFilters.has('Others') && horizon.type !== 'Event' && horizon.type !== 'Meeting') return true;
+    return false;
+  });
+
   return (
     <div className="bg-productivity-surface rounded-lg p-4 border border-border">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-productivity-text-primary">
-          Horizons
-        </h3>
+        <div className="flex items-center gap-3">
+          <h3 className="text-lg font-semibold text-productivity-text-primary">
+            Horizons
+          </h3>
+          {/* Horizon count badge */}
+          {!loading && (
+            <div className="px-2 py-1 bg-orange-100 text-orange-700 text-xs font-medium rounded-full border border-orange-200">
+              {filteredHorizons.length}
+            </div>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           <button
             onClick={handleRefresh}
@@ -383,22 +414,13 @@ export const HorizonSection = () => {
           </p>
         ) : (
           <div>
-            {(() => {
-              // Filter horizons based on selected filters
-              const filteredHorizons = selectedFilters.size === 0 ? horizons : horizons.filter(horizon => {
-                if (selectedFilters.has('Event') && horizon.type === 'Event') return true;
-                if (selectedFilters.has('Meeting') && horizon.type === 'Meeting') return true;
-                if (selectedFilters.has('Others') && horizon.type !== 'Event' && horizon.type !== 'Meeting') return true;
-                return false;
-              });
-              
-              return filteredHorizons.length === 0 ? (
+            {filteredHorizons.length === 0 ? (
                 <p className="text-sm text-productivity-text-tertiary">
                   No horizons match the selected filters.
                 </p>
               ) : filteredHorizons.map((horizon, index) => {
               const horizonId = horizon.id || `horizon-${index}`;
-              const isExpanded = expandedDetails.has(horizonId);
+              const isTooltipPinned = pinnedTooltip === horizonId;
               
               return (
                 <div key={horizonId} className="space-y-1">
@@ -418,31 +440,58 @@ export const HorizonSection = () => {
                       const dateToShow = validHorizonDate || horizon.created_at;
                       return dateToShow && (
                         <div className="flex-shrink-0 text-xs text-productivity-text-tertiary">
-                          {formatDate(dateToShow)}
+                          {formatDate(dateToShow, convertTime)}
                         </div>
                       );
                     })()}
 
-                    {/* Title with clickable help icon */}
+                    {/* Title with countdown and tooltip help icon */}
                     <div className="flex-1 min-w-0 flex items-center gap-2">
-                      <button
-                        onClick={() => toggleDetails(horizonId)}
-                        className="flex-shrink-0 p-1 text-productivity-text-tertiary hover:text-productivity-text-primary transition-colors"
-                        title="Toggle details"
-                      >
-                        <HelpCircle className="w-3 h-3" />
-                      </button>
+                      {/* Days Until Date (for any horizon with a horizon_date) - with consistent spacing */}
+                      <div className="flex-shrink-0 text-xs text-red-500 font-medium min-w-[60px]">
+                        {horizon.horizon_date && horizon.horizon_date !== 'null' 
+                          ? getDaysUntilEvent(horizon.horizon_date, convertTime)
+                          : ''
+                        }
+                      </div>
+                      
+                      <div className="relative flex-shrink-0 group">
+                        <button
+                          onClick={() => handleTooltipClick(horizonId)}
+                          className="p-1 text-productivity-text-tertiary hover:text-productivity-text-primary transition-colors"
+                          title="Show details"
+                        >
+                          <HelpCircle className="w-3 h-3" />
+                        </button>
+                        
+                        {/* Tooltip */}
+                        <div
+                          className={cn(
+                            "absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-4 py-3 bg-gray-800 text-white text-xs rounded shadow-lg whitespace-pre-wrap w-72 z-50 transition-opacity duration-200",
+                            isTooltipPinned ? "opacity-100 visible" : "opacity-0 invisible group-hover:opacity-100 group-hover:visible"
+                          )}
+                        >
+                          {horizon.details || 'No details available'}
+                          {isTooltipPinned && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPinnedTooltip(null);
+                              }}
+                              className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600 transition-colors"
+                              title="Close"
+                            >
+                              ×
+                            </button>
+                          )}
+                          {/* Tooltip arrow */}
+                          <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                        </div>
+                      </div>
                       <div className="text-productivity-text-primary text-xs break-words leading-tight">
                         {horizon.title}
                       </div>
                     </div>
-
-                    {/* Days Until Date (for any horizon with a horizon_date) */}
-                    {horizon.horizon_date && horizon.horizon_date !== 'null' && (
-                      <div className="flex-shrink-0 text-xs text-red-500 font-medium">
-                        {getDaysUntilEvent(horizon.horizon_date)}
-                      </div>
-                    )}
 
                     {/* Edit Button */}
                     <button
@@ -462,17 +511,9 @@ export const HorizonSection = () => {
                       <X className="w-3 h-3" />
                     </button>
                   </div>
-
-                  {/* Expandable Details */}
-                  {isExpanded && (
-                    <div className="px-4 py-2 bg-gray-50 border border-border rounded text-xs text-productivity-text-secondary">
-                      <p className="whitespace-pre-wrap">{horizon.details || 'No details available'}</p>
-                    </div>
-                  )}
                 </div>
               );
-              });
-            })()}
+              })}
           </div>
         )}
       </div>

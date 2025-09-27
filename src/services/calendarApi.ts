@@ -36,8 +36,29 @@ export class CalendarApiService {
 
 // Transform API event to internal CalendarEvent format
 export const transformApiEvent = (apiEvent: ApiEvent, index: number): CalendarEvent => {
-  // Parse date and time
   const currentYear = new Date().getFullYear();
+  
+  // Handle all-day events
+  if (apiEvent.all_day || apiEvent.start_time === "All Day") {
+    // For all-day events, just parse the date and set time to start of day
+    const [month, day] = apiEvent.date.split(' ');
+    const monthNum = new Date(`${month} 1, ${currentYear}`).getMonth();
+    const dayNum = parseInt(day);
+    const parsedDate = new Date(currentYear, monthNum, dayNum, 0, 0, 0, 0);
+    
+    return {
+      id: `api-event-${index}`,
+      title: apiEvent.event,
+      startTime: parsedDate,
+      duration: apiEvent.duration_minutes,
+      attendees: apiEvent.attendees,
+      organizerEmail: apiEvent.organizer_email,
+      all_day: true,
+      notes: apiEvent.notes,
+    };
+  }
+  
+  // Parse date and time for regular events
   const dateStr = `${apiEvent.date} ${currentYear}`;
   const dateTime = new Date(`${dateStr} ${apiEvent.start_time}`);
   
@@ -68,6 +89,8 @@ export const transformApiEvent = (apiEvent: ApiEvent, index: number): CalendarEv
       duration: apiEvent.duration_minutes,
       attendees: apiEvent.attendees,
       organizerEmail: apiEvent.organizer_email,
+      all_day: false,
+      notes: apiEvent.notes,
     };
   }
 
@@ -78,6 +101,8 @@ export const transformApiEvent = (apiEvent: ApiEvent, index: number): CalendarEv
     duration: apiEvent.duration_minutes,
     attendees: apiEvent.attendees,
     organizerEmail: apiEvent.organizer_email,
+    all_day: false,
+    notes: apiEvent.notes,
   };
 };
 

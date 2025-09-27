@@ -3,12 +3,14 @@ import { TodoItem, CreateTodoRequest } from '../types/todo';
 import { todoApiService } from '../services/todoApi';
 import { cn } from '../lib/utils';
 import { X, RefreshCw } from 'lucide-react';
+import { useTimezone } from '../contexts/TimezoneContext';
 
 
-// Helper function to format date as "Sep 23"
-const formatDate = (dateString: string): string => {
+// Helper function to format date as "Sep 23" with timezone conversion
+const formatDate = (dateString: string, convertTime: (date: Date) => Date): string => {
   const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const convertedDate = convertTime(date);
+  return convertedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
 export const TodoSection = () => {
@@ -18,6 +20,7 @@ export const TodoSection = () => {
   const [urgency, setUrgency] = useState<'high' | 'low'>('low');
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const { convertTime } = useTimezone();
 
   // Fetch todos on component mount
   useEffect(() => {
@@ -80,9 +83,15 @@ export const TodoSection = () => {
   return (
     <div className="bg-productivity-surface rounded-lg p-4 border border-border">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-productivity-text-primary">
-          To-do List
-        </h3>
+        <div className="flex items-center gap-3">
+          <h3 className="text-lg font-semibold text-productivity-text-primary">
+            To-do List
+          </h3>
+          {/* Todo count badge */}
+          <div className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full border border-green-200">
+            {todos.length}
+          </div>
+        </div>
         <button
           onClick={handleRefresh}
           disabled={refreshing}
@@ -149,7 +158,7 @@ export const TodoSection = () => {
               {/* Date */}
               {todo.created_at && (
                 <div className="flex-shrink-0 text-xs text-productivity-text-tertiary">
-                  {formatDate(todo.created_at)}
+                  {formatDate(todo.created_at, convertTime)}
                 </div>
               )}
 

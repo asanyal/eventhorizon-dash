@@ -62,9 +62,20 @@ export const useCalendarEvents = (timeFilter: TimeFilter): UseCalendarEventsResu
         end = new Date(today);
     }
 
+    const startStr = start.toISOString().split('T')[0];
+    const endStr = end.toISOString().split('T')[0];
+    
+    console.log(`📅 Date range calculation for ${filter}:`, {
+      today: today.toISOString().split('T')[0],
+      start: startStr,
+      end: endStr,
+      startDate: start.toDateString(),
+      endDate: end.toDateString()
+    });
+
     return {
-      start: start.toISOString().split('T')[0], // YYYY-MM-DD format
-      end: end.toISOString().split('T')[0]
+      start: startStr, // YYYY-MM-DD format
+      end: endStr
     };
   };
 
@@ -74,15 +85,32 @@ export const useCalendarEvents = (timeFilter: TimeFilter): UseCalendarEventsResu
     
     try {
       const dateRange = getDateRange(timeFilter);
+      console.log(`🗓️  Fetching events for ${timeFilter}:`, dateRange);
       const apiEvents = await calendarApiService.getEvents(dateRange);
+      console.log(`📅 Received ${apiEvents.length} events from API for ${timeFilter}`);
       const transformedEvents = apiEvents.map((apiEvent, index) => 
         transformApiEvent(apiEvent, index)
       );
       
-      // Sort events by start time
-      transformedEvents.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+      // For single-day filters, filter events to only include the target date
+      let filteredEvents = transformedEvents;
+      if (['today', 'tomorrow', 'day-after', '2-days-after'].includes(timeFilter)) {
+        const targetDateStr = dateRange.start; // The target date in YYYY-MM-DD format
+        filteredEvents = transformedEvents.filter(event => {
+          const eventDateStr = event.startTime.toISOString().split('T')[0];
+          const isTargetDate = eventDateStr === targetDateStr;
+          if (!isTargetDate) {
+            console.log(`🚫 Filtering out event "${event.title}" (${eventDateStr}) - not target date (${targetDateStr})`);
+          }
+          return isTargetDate;
+        });
+        console.log(`🎯 After filtering to target date ${targetDateStr}: ${filteredEvents.length} events`);
+      }
       
-      setEvents(transformedEvents);
+      // Sort events by start time
+      filteredEvents.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+      
+      setEvents(filteredEvents);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch events';
       setError(errorMessage);

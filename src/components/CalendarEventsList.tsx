@@ -1,12 +1,17 @@
 import { CalendarEvent, TimeFilter } from '../types/calendar';
 import { formatDateTime, getTimeUntilEvent, formatDuration, getUrgencyLevel, getUrgencyColor } from '../utils/dateUtils';
 import { cn } from '../lib/utils';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { Bookmark, FileText } from 'lucide-react';
+import { bookmarkApiService } from '../services/bookmarkApi';
+import { CreateBookmarkRequest } from '../types/bookmark';
+import { useTimezone } from '../contexts/TimezoneContext';
 
 interface CalendarEventsListProps {
   events: CalendarEvent[];
   timeFilter: TimeFilter;
   loading?: boolean;
+  onBookmarkCreated?: () => void;
 }
 
 // Helper function to get initials from email
@@ -41,11 +46,10 @@ const isExternalMeeting = (attendees: string[]): boolean => {
 const getMeetingTypes = (events: CalendarEvent[]) => {
   const external = events.filter(e => isExternalMeeting(e.attendees)).length;
   const internal = events.length - external;
-  const total = events.length;
   
   return [
-    { label: 'Internal', percentage: total > 0 ? (internal / total * 100).toFixed(1) : '0' },
-    { label: 'External', percentage: total > 0 ? (external / total * 100).toFixed(1) : '0' }
+    { label: 'Internal', count: internal },
+    { label: 'External', count: external }
   ].filter((type, idx) => (idx === 0 ? internal : external) > 0);
 };
 
@@ -157,13 +161,64 @@ const getFreeBlocks = (events: CalendarEvent[]) => {
     .slice(0, 4); // Limit to 4 blocks
 };
 
-export const CalendarEventsList = ({ events, timeFilter, loading = false }: CalendarEventsListProps) => {
+export const CalendarEventsList = ({ events, timeFilter, loading = false, onBookmarkCreated }: CalendarEventsListProps) => {
   const [clickedChip, setClickedChip] = useState<string | null>(null);
+  const [showPastEvents, setShowPastEvents] = useState(false);
+  const [pinnedTooltip, setPinnedTooltip] = useState<string | null>(null);
+  const [meetingTypeFilter, setMeetingTypeFilter] = useState<'all' | 'internal' | 'external'>('all');
+  const { convertTime } = useTimezone();
+
+  // Handle escape key to close pinned tooltip
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setPinnedTooltip(null);
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, []);
+
+  const handleTooltipClick = (eventId: string) => {
+    if (pinnedTooltip === eventId) {
+      setPinnedTooltip(null); // Unpin if already pinned
+    } else {
+      setPinnedTooltip(eventId); // Pin this tooltip
+    }
+  };
+
   
-  // Calculate summary data
+  const handleBookmark = async (event: CalendarEvent) => {
+    try {
+      const bookmarkData: CreateBookmarkRequest = {
+        date: formatMinimalDate(event.startTime),
+        time: event.startTime.toISOString(), // Store actual event start time instead of relative time
+        event_title: event.title,
+        duration: event.duration,
+        attendees: event.attendees
+      };
+      
+      await bookmarkApiService.createBookmark(bookmarkData);
+      
+      // Notify parent component that a bookmark was created
+      if (onBookmarkCreated) {
+        onBookmarkCreated();
+      }
+    } catch (error) {
+      console.error('Error bookmarking event:', error);
+    }
+  };
+  
+  // Calculate summary data with timezone conversion
+  const eventsWithConvertedTimes = events.map(event => ({
+    ...event,
+    startTime: convertTime(event.startTime)
+  }));
+  
   const meetingTypes = getMeetingTypes(events);
-  const timeDistribution = getTimeDistribution(events);
-  const freeBlocks = getFreeBlocks(events);
+  const timeDistribution = getTimeDistribution(eventsWithConvertedTimes);
+  const freeBlocks = getFreeBlocks(eventsWithConvertedTimes);
   
   return (
     <div className="space-y-4 max-w-2xl">
@@ -188,7 +243,7 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false }: Cale
                       "text-productivity-text-primary",
                       type.label === 'External' && "text-orange-500"
                     )}>
-                      {type.label} {type.percentage}%
+                      {type.label} {type.count}
                     </span>
                   </div>
                 ))}
@@ -245,16 +300,74 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false }: Cale
         </div>
       )}
       
+      {/* Show/Hide Past Events Toggle and Meeting Type Filter */}
+      {events.length > 0 && !loading && (
+        <div className="flex justify-between items-center mb-4">
+          {/* Meeting Type Filter */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-productivity-text-secondary font-medium">Filter meetings:</span>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setMeetingTypeFilter('all')}
+                className={cn(
+                  "px-3 py-1 text-xs font-medium rounded-full transition-colors",
+                  meetingTypeFilter === 'all'
+                    ? "bg-gray-500 text-white"
+                    : "bg-gray-200 text-gray-600 hover:bg-gray-300"
+                )}
+              >
+                All
+              </button>
+              <button
+                onClick={() => setMeetingTypeFilter('internal')}
+                className={cn(
+                  "px-3 py-1 text-xs font-medium rounded-full transition-colors",
+                  meetingTypeFilter === 'internal'
+                    ? "bg-blue-500 text-white"
+                    : "bg-gray-200 text-gray-600 hover:bg-gray-300"
+                )}
+              >
+                Internal
+              </button>
+              <button
+                onClick={() => setMeetingTypeFilter('external')}
+                className={cn(
+                  "px-3 py-1 text-xs font-medium rounded-full transition-colors",
+                  meetingTypeFilter === 'external'
+                    ? "bg-orange-500 text-white"
+                    : "bg-gray-200 text-gray-600 hover:bg-gray-300"
+                )}
+              >
+                External
+              </button>
+            </div>
+          </div>
+          
+          {/* Show Past Events Toggle */}
+          <label className="flex items-center gap-2 text-xs text-productivity-text-secondary cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showPastEvents}
+              onChange={(e) => setShowPastEvents(e.target.checked)}
+              className="w-3 h-3 text-primary bg-background border-border rounded focus:ring-primary focus:ring-1"
+            />
+            Show past events
+          </label>
+        </div>
+      )}
+      
       {/* Table */}
       <div className="bg-productivity-surface rounded-lg shadow-md overflow-visible">
       {/* Table Header */}
       <div className="bg-table-header px-3 py-2 border-b border-border">
-        <div className="grid grid-cols-10 gap-1 text-xs font-medium text-productivity-text-secondary">
+        <div className="grid grid-cols-12 gap-1 text-xs font-medium text-productivity-text-secondary">
+          <div className="col-span-1"></div>
           <div className="col-span-2">Date</div>
           <div className="col-span-2">Time</div>
           <div className="col-span-3">Event</div>
           <div className="col-span-1">Dur</div>
           <div className="col-span-2">Attendees</div>
+          <div className="col-span-1"></div>
         </div>
       </div>
       
@@ -272,20 +385,44 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false }: Cale
             No events found for the selected time period.
           </div>
         ) : (
-          events.map((event, index) => {
-            const urgencyLevel = getUrgencyLevel(event.startTime);
-            const isEven = index % 2 === 0;
-            const isPastEvent = event.startTime.getTime() < new Date().getTime();
+          (() => {
+            const filteredEvents = events.filter(event => {
+              const isPastEvent = event.startTime.getTime() < new Date().getTime();
+              const pastEventFilter = showPastEvents || !isPastEvent;
+              
+              // Apply meeting type filter
+              let meetingTypeFilterMatch = true;
+              if (meetingTypeFilter === 'internal') {
+                meetingTypeFilterMatch = !isExternalMeeting(event.attendees);
+              } else if (meetingTypeFilter === 'external') {
+                meetingTypeFilterMatch = isExternalMeeting(event.attendees);
+              }
+              
+              return pastEventFilter && meetingTypeFilterMatch;
+            });
             
-            // Find the next immediate event (first future event in the sorted list)
-            const futureEvents = events.filter(e => e.startTime.getTime() > new Date().getTime());
-            const nextEvent = futureEvents.length > 0 ? futureEvents[0] : null;
-            const isNextEvent = nextEvent && event.id === nextEvent.id;
-            
-            // Check if this is the last event of the day (next event is on a different day)
-            const currentDate = formatMinimalDate(event.startTime);
-            const nextEventDate = index < events.length - 1 ? formatMinimalDate(events[index + 1].startTime) : null;
-            const isLastOfDay = nextEventDate && currentDate !== nextEventDate;
+            return filteredEvents.map((event, index) => {
+              // Convert event time to selected timezone for display
+              const convertedEvent = {
+                ...event,
+                startTime: convertTime(event.startTime)
+              };
+              
+              const urgencyLevel = getUrgencyLevel(convertedEvent.startTime);
+              const isEven = index % 2 === 0;
+              const isPastEvent = event.startTime.getTime() < new Date().getTime(); // Use original time for past check
+              const isTooltipPinned = pinnedTooltip === event.id;
+              
+              // Find the next immediate event (first future event in the sorted list)
+              const futureEvents = events.filter(e => e.startTime.getTime() > new Date().getTime());
+              const nextEvent = futureEvents.length > 0 ? futureEvents[0] : null;
+              const isNextEvent = nextEvent && event.id === nextEvent.id;
+              
+              // Check if this is the last event of the day (next event is on a different day)
+              // Use the filtered array for proper index comparison
+              const currentDate = formatMinimalDate(convertedEvent.startTime);
+              const nextEventDate = index < filteredEvents.length - 1 ? formatMinimalDate(convertTime(filteredEvents[index + 1].startTime)) : null;
+              const isLastOfDay = nextEventDate && currentDate !== nextEventDate;
             
             // Debug logging
             if (index === 0) {
@@ -301,10 +438,22 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false }: Cale
                   className={cn(
                     "px-3 py-2 hover:bg-table-row-hover transition-all duration-200",
                     isEven ? "bg-productivity-surface" : "bg-table-row-even",
-                    isPastEvent && "opacity-60"
+                    isPastEvent && "opacity-60",
+                    event.all_day && "bg-indigo-50 border-l-4 border-indigo-300"
                   )}
                 >
-                <div className="grid grid-cols-10 gap-1 items-center">
+                <div className="grid grid-cols-12 gap-1 items-center">
+                  {/* Bookmark */}
+                  <div className="col-span-1 flex items-center justify-center">
+                    <button
+                      onClick={() => handleBookmark(event)}
+                      className="p-1 text-productivity-text-tertiary hover:text-blue-500 transition-colors"
+                      title={`Bookmark "${event.title}"`}
+                    >
+                      <Bookmark className="w-3 h-3" />
+                    </button>
+                  </div>
+                  
                   {/* Date */}
                   <div className="col-span-2">
                     <span className={cn(
@@ -312,7 +461,7 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false }: Cale
                       isPastEvent && "line-through",
                       isNextEvent && "font-bold"
                     )}>
-                      {formatMinimalDate(event.startTime)}
+                      {formatMinimalDate(convertedEvent.startTime)}
                     </span>
                   </div>
                   
@@ -321,24 +470,31 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false }: Cale
                     <div 
                       className={cn(
                         "w-2 h-2 rounded-full flex-shrink-0",
-                        isPastEvent ? "bg-gray-400" : getUrgencyColor(urgencyLevel)
+                        isPastEvent ? "bg-gray-400" : event.all_day ? "bg-indigo-400" : getUrgencyColor(urgencyLevel)
                       )}
-                      title={isPastEvent ? "Past event" : `Urgency: ${urgencyLevel}`}
+                      title={isPastEvent ? "Past event" : event.all_day ? "All-day event" : `Urgency: ${urgencyLevel}`}
                     />
                     <div className={cn(
                       "text-productivity-text-secondary text-xs",
                       isPastEvent && "line-through",
-                      isNextEvent && "font-bold"
+                      isNextEvent && "font-bold",
+                      event.all_day && "text-indigo-600"
                     )}>
-                      <div className={cn(
-                        "font-mono",
-                        isNextEvent && "text-red-500"
-                      )}>
-                        {getTimeUntilEvent(event.startTime)}
-                      </div>
-                      <div className="text-[10px] text-productivity-text-tertiary">
-                        {formatDateTime(event.startTime).split(' (')[1]?.replace(')', '') || formatDateTime(event.startTime)}
-                      </div>
+                      {event.all_day ? (
+                        <div className="font-medium">All Day</div>
+                      ) : (
+                        <>
+                          <div className={cn(
+                            "font-mono",
+                            isNextEvent && "text-red-500"
+                          )}>
+                            {getTimeUntilEvent(convertedEvent.startTime)}
+                          </div>
+                          <div className="text-[10px] text-productivity-text-tertiary">
+                            {formatDateTime(convertedEvent.startTime).split(' (')[1]?.replace(')', '') || formatDateTime(convertedEvent.startTime)}
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                   
@@ -410,6 +566,48 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false }: Cale
                       )}
                     </div>
                   </div>
+                  
+                  {/* Notes Tooltip */}
+                  <div className="col-span-1 flex items-center justify-center">
+                    {event.notes && (
+                      <div className="relative group">
+                        <button
+                          onClick={() => handleTooltipClick(event.id)}
+                          className="p-1 text-productivity-text-tertiary hover:text-productivity-text-primary transition-colors"
+                          title="Show notes"
+                        >
+                          <FileText className="w-3 h-3" />
+                        </button>
+                        
+                        {/* Tooltip */}
+                        <div
+                          className={cn(
+                            "absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-4 py-3 bg-gray-800 text-white text-xs rounded shadow-lg w-72 z-50 transition-opacity duration-200 max-h-40 overflow-y-auto",
+                            isTooltipPinned ? "opacity-100 visible" : "opacity-0 invisible group-hover:opacity-100 group-hover:visible"
+                          )}
+                        >
+                          <div 
+                            dangerouslySetInnerHTML={{ __html: event.notes || 'No notes available' }}
+                            className="prose prose-invert prose-xs max-w-none"
+                          />
+                          {isTooltipPinned && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPinnedTooltip(null);
+                              }}
+                              className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600 transition-colors"
+                              title="Close"
+                            >
+                              ×
+                            </button>
+                          )}
+                          {/* Tooltip arrow */}
+                          <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 </div>
                 {isLastOfDay && (
@@ -417,7 +615,8 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false }: Cale
                 )}
               </div>
             );
-          })
+            });
+          })()
         )}
       </div>
     </div>
