@@ -4,7 +4,7 @@ import { TimeFilterDropdown } from '../components/TimeFilterDropdown';
 import { TodoSection } from '../components/TodoSection';
 import { HorizonSection } from '../components/HorizonSection';
 import { KeyEventsSection } from '../components/KeyEventsSection';
-import { TimezoneSelector } from '../components/TimezoneSelector';
+import { HolidaysSection } from '../components/HolidaysSection';
 import { TimezoneProvider, useTimezone } from '../contexts/TimezoneContext';
 import { useCalendarEvents } from '../hooks/useCalendarEvents';
 import { TimeFilter, CalendarEvent } from '../types/calendar';
@@ -16,26 +16,42 @@ import { bookmarkApiService } from '../services/bookmarkApi';
 import { BookmarkEvent } from '../types/bookmark';
 import { cache, CACHE_KEYS, CACHE_TTL } from '../utils/cacheUtils';
 
+// Helper function to get system timezone
+const getSystemTimezone = (): string => {
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const offset = new Date().getTimezoneOffset();
+  const offsetHours = Math.abs(offset) / 60;
+  const offsetMinutes = Math.abs(offset) % 60;
+  const sign = offset <= 0 ? '+' : '-';
+  const offsetStr = `${sign}${offsetHours.toString().padStart(2, '0')}:${offsetMinutes.toString().padStart(2, '0')}`;
+  
+  // Extract city name from timezone (e.g., "Europe/London" -> "London")
+  const cityName = timezone.split('/').pop()?.replace(/_/g, ' ') || timezone;
+  
+  return `${cityName} (UTC${offsetStr})`;
+};
+
 // Helper function to get greeting based on time of day
-const getGreeting = (time: Date, convertTime: (date: Date) => Date) => {
-  const localTime = convertTime(time);
-  const hour = localTime.getHours();
-  const dateString = localTime.toLocaleDateString('en-US', { 
+// Uses system time (no timezone conversion) for greeting
+const getGreeting = (time: Date) => {
+  const hour = time.getHours();
+  const dayOfWeek = time.toLocaleDateString('en-US', { weekday: 'short' });
+  const dateString = time.toLocaleDateString('en-US', { 
     month: 'short', 
     day: 'numeric' 
   });
-  const timeString = localTime.toLocaleTimeString('en-US', { 
+  const timeString = time.toLocaleTimeString('en-US', { 
     hour: 'numeric', 
     minute: '2-digit', 
     hour12: true 
   });
   
   if (hour >= 5 && hour < 12) {
-    return `🌅 Good Morning, it's ${dateString}, ${timeString}!`;
+    return `🌅 Good Morning, it's ${dayOfWeek}, ${dateString}, ${timeString}!`;
   } else if (hour >= 12 && hour < 17) {
-    return `☀️ Good Afternoon, it's ${dateString}, ${timeString}.`;
+    return `☀️ Good Afternoon, it's ${dayOfWeek}, ${dateString}, ${timeString}.`;
   } else {
-    return `🌆 Good Evening, it's ${dateString}, ${timeString}.`;
+    return `🌆 Good Evening, it's ${dayOfWeek}, ${dateString}, ${timeString}.`;
   }
 };
 
@@ -96,6 +112,7 @@ const IndexContent = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [bookmarkRefreshTrigger, setBookmarkRefreshTrigger] = useState(0);
   const [bookmarkedEventTitles, setBookmarkedEventTitles] = useState<string[]>([]);
+  const [bookmarkedEvents, setBookmarkedEvents] = useState<BookmarkEvent[]>([]);
   const [currentPage, setCurrentPage] = useState<PageType>('calendar');
   const { convertTime } = useTimezone();
   const { events, loading, error, refetch } = useCalendarEvents(timeFilter, selectedDate);
@@ -106,11 +123,11 @@ const IndexContent = () => {
 
   // Clear any corrupted cache on app startup (one-time fix)
   useEffect(() => {
-    const hasCleared = localStorage.getItem('eventhorizon_cache_cleared_v1');
+    const hasCleared = localStorage.getItem('eventhorizon_cache_cleared_v2');
     if (!hasCleared) {
-      console.log('🧹 Clearing potentially corrupted cache on startup');
+      console.log('🧹 Clearing potentially corrupted cache on startup (v2)');
       cache.clear();
-      localStorage.setItem('eventhorizon_cache_cleared_v1', 'true');
+      localStorage.setItem('eventhorizon_cache_cleared_v2', 'true');
     }
   }, []);
 
@@ -142,6 +159,7 @@ const IndexContent = () => {
         cache.set(CACHE_KEYS.BOOKMARK_TITLES, titles, { ttl: CACHE_TTL.BOOKMARKS });
         
         setBookmarkedEventTitles(titles);
+        setBookmarkedEvents(bookmarks);
       } catch (error) {
         console.error('Error fetching bookmarked event titles:', error);
       }
@@ -205,13 +223,15 @@ const IndexContent = () => {
                 Wake Up
               </h1>
             </div>
-            <TimezoneSelector />
+            <div className="text-sm text-productivity-text-secondary font-medium">
+              {getSystemTimezone()}
+            </div>
           </div>
           <p className="text-sm md:text-base text-productivity-text-secondary mb-3 md:mb-4">
             Each moment is wide open.
           </p>
           <div className="text-lg md:text-2xl font-semibold text-productivity-text-primary">
-            {getGreeting(currentTime, convertTime)}
+            {getGreeting(currentTime)}
           </div>
           <div className="text-sm md:text-lg mt-2">
             {(() => {
@@ -267,7 +287,7 @@ const IndexContent = () => {
                   }`}
                 >
                   <PartyPopper className="w-4 h-4" />
-                  Holidays
+                  Vacation Planner
                 </button>
               </div>
             </div>
@@ -398,7 +418,10 @@ const IndexContent = () => {
 
           {/* Right Column - Key Events and Horizons */}
           <div className="space-y-4 md:space-y-6">
-            <KeyEventsSection refreshTrigger={bookmarkRefreshTrigger} />
+            <KeyEventsSection 
+              refreshTrigger={bookmarkRefreshTrigger} 
+              onBookmarkDeleted={handleBookmarkCreated}
+            />
             <HorizonSection />
           </div>
           </div>
@@ -415,14 +438,11 @@ const IndexContent = () => {
           </div>
         ) : (
           /* Holidays Page Content */
-          <div className="flex items-center justify-center py-16">
-            <div className="text-center">
-              <PartyPopper className="w-16 h-16 text-orange-500 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-productivity-text-primary mb-2">Holidays Page</h2>
-              <p className="text-productivity-text-secondary">
-                Coming soon! This will show holiday information and events.
-              </p>
-            </div>
+          <div className="max-w-4xl mx-auto">
+            <HolidaysSection 
+              calendarEvents={events}
+              bookmarkedEvents={bookmarkedEvents}
+            />
           </div>
         )}
       </div>

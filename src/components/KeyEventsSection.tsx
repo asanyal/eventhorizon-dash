@@ -9,9 +9,10 @@ import { cache, CACHE_KEYS, CACHE_TTL } from '../utils/cacheUtils';
 
 interface KeyEventsSectionProps {
   refreshTrigger?: number;
+  onBookmarkDeleted?: () => void;
 }
 
-export const KeyEventsSection = ({ refreshTrigger }: KeyEventsSectionProps) => {
+export const KeyEventsSection = ({ refreshTrigger, onBookmarkDeleted }: KeyEventsSectionProps) => {
   const [bookmarks, setBookmarks] = useState<BookmarkEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -236,8 +237,17 @@ export const KeyEventsSection = ({ refreshTrigger }: KeyEventsSectionProps) => {
   const handleUnbookmark = async (eventTitle: string) => {
     try {
       await bookmarkApiService.deleteBookmarkByTitle(eventTitle);
+      // Clear bookmark-related caches
+      cache.remove(CACHE_KEYS.BOOKMARKS);
+      cache.remove(CACHE_KEYS.BOOKMARK_TITLES);
+      
+      // Notify parent component that bookmark was deleted
+      if (onBookmarkDeleted) {
+        onBookmarkDeleted();
+      }
+      
       // Refresh the list after successful deletion
-      await fetchBookmarks();
+      await fetchBookmarks(true);
     } catch (error) {
       console.error('Error deleting bookmark:', error);
     }

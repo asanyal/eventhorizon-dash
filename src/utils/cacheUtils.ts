@@ -93,6 +93,14 @@ export class LocalStorageCache {
       })) as T;
     }
     
+    // Handle EnhancedHoliday arrays (holidays cache)
+    if (key === 'eventhorizon_holidays' && Array.isArray(data)) {
+      return (data as any[]).map(holiday => ({
+        ...holiday,
+        fullDate: new Date(holiday.fullDate)
+      })) as T;
+    }
+    
     return data;
   }
 
@@ -184,6 +192,7 @@ export const CACHE_KEYS = {
   BOOKMARKS: 'eventhorizon_bookmarks',
   TODOS: (params?: string) => `eventhorizon_todos${params ? `_${params}` : ''}`,
   HORIZONS: 'eventhorizon_horizons',
+  HOLIDAYS: 'eventhorizon_holidays',
   BOOKMARK_TITLES: 'eventhorizon_bookmark_titles'
 } as const;
 

@@ -32,15 +32,12 @@ interface TimezoneProviderProps {
 }
 
 export const TimezoneProvider: React.FC<TimezoneProviderProps> = ({ children }) => {
-  const [selectedTimezone, setSelectedTimezone] = useState<Timezone>(() => {
-    // Load from localStorage or default to PST
-    const saved = localStorage.getItem('calendar-timezone');
-    return (saved as Timezone) || 'PST';
-  });
+  // Always use PST since backend returns PST times and we display system timezone
+  const selectedTimezone: Timezone = 'PST';
 
   const setTimezone = (timezone: Timezone) => {
-    setSelectedTimezone(timezone);
-    localStorage.setItem('calendar-timezone', timezone);
+    // No-op since we're not allowing timezone changes
+    console.log('Timezone changes are disabled - using PST for backend data');
   };
 
   const convertTime = (pstDate: Date) => {

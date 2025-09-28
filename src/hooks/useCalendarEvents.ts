@@ -25,64 +25,73 @@ export const useCalendarEvents = (timeFilter: TimeFilter, specificDate?: string)
       };
     }
     
+    // Use system time to determine "today" but format as YYYY-MM-DD in local timezone
     const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    
-    let start: Date;
-    let end: Date;
+    const todayStr = now.toLocaleDateString('en-CA'); // Returns YYYY-MM-DD format in local timezone
+
+    // Helper function to add days to a YYYY-MM-DD string
+    const addDays = (dateStr: string, days: number): string => {
+      const date = new Date(dateStr + 'T00:00:00'); // Create date in local timezone
+      date.setDate(date.getDate() + days);
+      return date.toLocaleDateString('en-CA'); // Return as YYYY-MM-DD
+    };
+
+    let startStr: string;
+    let endStr: string;
 
     switch (filter) {
       case 'today':
-        start = new Date(today);
-        end = new Date(today); // Same day for both start and end
+        startStr = todayStr;
+        endStr = todayStr;
         break;
       case 'tomorrow':
-        const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
-        start = new Date(tomorrow);
-        end = new Date(tomorrow); // Same day for both start and end
+        startStr = addDays(todayStr, 1);
+        endStr = addDays(todayStr, 1);
         break;
       case 'day-after':
-        const dayAfter = new Date(today.getTime() + 2 * 24 * 60 * 60 * 1000);
-        start = new Date(dayAfter);
-        end = new Date(dayAfter); // Same day for both start and end
+        startStr = addDays(todayStr, 2);
+        endStr = addDays(todayStr, 2);
         break;
       case '2-days-after':
-        const twoDaysAfter = new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000);
-        start = new Date(twoDaysAfter);
-        end = new Date(twoDaysAfter); // Same day for both start and end
+        startStr = addDays(todayStr, 3);
+        endStr = addDays(todayStr, 3);
         break;
       case 'this-week':
-        start = new Date(today); // Start from today, not beginning of week
-        end = new Date(today.getTime() + (6 - today.getDay()) * 24 * 60 * 60 * 1000); // End of week (Sunday)
+        startStr = todayStr; // Start from today, not beginning of week
+        const todayDate = new Date(todayStr + 'T00:00:00');
+        const daysUntilSunday = todayDate.getDay() === 0 ? 0 : (7 - todayDate.getDay());
+        endStr = addDays(todayStr, daysUntilSunday);
         break;
       case 'next-week':
         // Calculate Monday of next week
-        const daysUntilNextMonday = today.getDay() === 0 ? 1 : (8 - today.getDay()); // If Sunday, next Monday is 1 day away, otherwise 8 - current day
-        start = new Date(today.getTime() + daysUntilNextMonday * 24 * 60 * 60 * 1000);
-        end = new Date(start.getTime() + 6 * 24 * 60 * 60 * 1000); // End of next week (Sunday)
+        const todayDateForNextWeek = new Date(todayStr + 'T00:00:00');
+        const daysUntilNextMonday = todayDateForNextWeek.getDay() === 0 ? 1 : (8 - todayDateForNextWeek.getDay());
+        startStr = addDays(todayStr, daysUntilNextMonday);
+        endStr = addDays(startStr, 6); // End of next week (Sunday)
         break;
       case 'this-month':
-        start = new Date(today); // Start from today, not beginning of month
-        end = new Date(today.getFullYear(), today.getMonth() + 1, 0); // Last day of current month
+        startStr = todayStr; // Start from today, not beginning of month
+        const todayDateForMonth = new Date(todayStr + 'T00:00:00');
+        const lastDayOfMonth = new Date(todayDateForMonth.getFullYear(), todayDateForMonth.getMonth() + 1, 0);
+        endStr = lastDayOfMonth.toLocaleDateString('en-CA');
         break;
       case 'next-month':
-        start = new Date(today.getFullYear(), today.getMonth() + 1, 1);
-        end = new Date(today.getFullYear(), today.getMonth() + 2, 0); // Last day of next month
+        const todayDateForNextMonth = new Date(todayStr + 'T00:00:00');
+        const firstDayNextMonth = new Date(todayDateForNextMonth.getFullYear(), todayDateForNextMonth.getMonth() + 1, 1);
+        const lastDayNextMonth = new Date(todayDateForNextMonth.getFullYear(), todayDateForNextMonth.getMonth() + 2, 0);
+        startStr = firstDayNextMonth.toLocaleDateString('en-CA');
+        endStr = lastDayNextMonth.toLocaleDateString('en-CA');
         break;
       default:
-        start = new Date(today);
-        end = new Date(today);
+        startStr = todayStr;
+        endStr = todayStr;
     }
-
-    const startStr = start.toISOString().split('T')[0];
-    const endStr = end.toISOString().split('T')[0];
     
     console.log(`📅 Date range calculation for ${filter}:`, {
-      today: today.toISOString().split('T')[0],
+      systemTime: now.toLocaleString(),
+      today: todayStr,
       start: startStr,
-      end: endStr,
-      startDate: start.toDateString(),
-      endDate: end.toDateString()
+      end: endStr
     });
 
     return {

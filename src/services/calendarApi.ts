@@ -59,45 +59,35 @@ export const transformApiEvent = (apiEvent: ApiEvent, index: number): CalendarEv
   }
   
   // Parse date and time for regular events
-  const dateStr = `${apiEvent.date} ${currentYear}`;
-  const dateTime = new Date(`${dateStr} ${apiEvent.start_time}`);
+  // API returns PST times, so we need to parse them as PST and convert to local timezone
+  const [month, day] = apiEvent.date.split(' ');
+  const monthNum = new Date(`${month} 1, ${currentYear}`).getMonth();
+  const dayNum = parseInt(day);
   
-  // If the date parsing fails, try a different approach
-  if (isNaN(dateTime.getTime())) {
-    // Try parsing with more specific format
-    const [month, day] = apiEvent.date.split(' ');
-    const monthNum = new Date(`${month} 1, ${currentYear}`).getMonth();
-    const dayNum = parseInt(day);
-    
-    const parsedDate = new Date(currentYear, monthNum, dayNum);
-    const [time, period] = apiEvent.start_time.split(' ');
-    const [hours, minutes] = time.split(':').map(Number);
-    
-    let adjustedHours = hours;
-    if (period === 'PM' && hours !== 12) {
-      adjustedHours += 12;
-    } else if (period === 'AM' && hours === 12) {
-      adjustedHours = 0;
-    }
-    
-    parsedDate.setHours(adjustedHours, minutes, 0, 0);
-    
-    return {
-      id: `api-event-${index}`,
-      title: apiEvent.event,
-      startTime: parsedDate,
-      duration: apiEvent.duration_minutes,
-      attendees: apiEvent.attendees,
-      organizerEmail: apiEvent.organizer_email,
-      all_day: false,
-      notes: apiEvent.notes,
-    };
+  // Parse the time
+  const [time, period] = apiEvent.start_time.split(' ');
+  const [hours, minutes] = time.split(':').map(Number);
+  
+  let adjustedHours = hours;
+  if (period === 'PM' && hours !== 12) {
+    adjustedHours += 12;
+  } else if (period === 'AM' && hours === 12) {
+    adjustedHours = 0;
   }
-
+  
+  // Create PST date object (PST is UTC-8)
+  const pstDate = new Date(currentYear, monthNum, dayNum, adjustedHours, minutes, 0, 0);
+  
+  // Convert PST to UTC by adding 8 hours (PST is UTC-8, so to get UTC we add 8)
+  const utcDate = new Date(pstDate.getTime() + (8 * 60 * 60 * 1000));
+  
+  // The Date object will automatically display in local timezone when used
+  // So utcDate represents the correct local time equivalent of the PST time
+  
   return {
     id: `api-event-${index}`,
     title: apiEvent.event,
-    startTime: dateTime,
+    startTime: utcDate,
     duration: apiEvent.duration_minutes,
     attendees: apiEvent.attendees,
     organizerEmail: apiEvent.organizer_email,
