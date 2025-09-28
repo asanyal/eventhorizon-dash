@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { CalendarEvent, TimeFilter } from '../types/calendar';
 import { calendarApiService, transformApiEvent } from '../services/calendarApi';
+import { cache, CACHE_KEYS, CACHE_TTL } from '../utils/cacheUtils';
 
 interface UseCalendarEventsResult {
   events: CalendarEvent[];
   loading: boolean;
   error: string | null;
-  refetch: () => void;
+  refetch: (forceRefresh?: boolean) => void;
 }
 
 export const useCalendarEvents = (timeFilter: TimeFilter, specificDate?: string): UseCalendarEventsResult => {
@@ -96,6 +97,17 @@ export const useCalendarEvents = (timeFilter: TimeFilter, specificDate?: string)
     
     try {
       const dateRange = getDateRange(timeFilter);
+      const cacheKey = CACHE_KEYS.CALENDAR_EVENTS(timeFilter, specificDate);
+      
+      // Try to get from cache first
+      const cachedEvents = cache.get<CalendarEvent[]>(cacheKey);
+      if (cachedEvents) {
+        console.log(`📦 Using cached events for ${timeFilter} (${cachedEvents.length} events)`);
+        setEvents(cachedEvents);
+        setLoading(false);
+        return;
+      }
+      
       console.log(`🗓️  Fetching events for ${timeFilter}:`, dateRange);
       const apiEvents = await calendarApiService.getEvents(dateRange);
       console.log(`📅 Received ${apiEvents.length} events from API for ${timeFilter}`);
@@ -135,6 +147,9 @@ export const useCalendarEvents = (timeFilter: TimeFilter, specificDate?: string)
       // Sort events by start time
       filteredEvents.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
       
+      // Cache the processed events
+      cache.set(cacheKey, filteredEvents, { ttl: CACHE_TTL.EVENTS });
+      
       setEvents(filteredEvents);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch events';
@@ -149,10 +164,20 @@ export const useCalendarEvents = (timeFilter: TimeFilter, specificDate?: string)
     fetchEvents();
   }, [timeFilter, specificDate]);
 
+  const refetch = (forceRefresh: boolean = false) => {
+    if (forceRefresh) {
+      // Clear cache for this specific query
+      const cacheKey = CACHE_KEYS.CALENDAR_EVENTS(timeFilter, specificDate);
+      cache.remove(cacheKey);
+      console.log(`🔄 Force refresh: cleared cache for ${timeFilter}`);
+    }
+    fetchEvents();
+  };
+
   return {
     events,
     loading,
     error,
-    refetch: fetchEvents
+    refetch
   };
 };

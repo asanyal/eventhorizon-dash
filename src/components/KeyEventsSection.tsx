@@ -5,6 +5,7 @@ import { cn } from '../lib/utils';
 import { X, RefreshCw, BookmarkCheck } from 'lucide-react';
 import { useTimezone } from '../contexts/TimezoneContext';
 import { getIntervalColor } from '../utils/dateUtils';
+import { cache, CACHE_KEYS, CACHE_TTL } from '../utils/cacheUtils';
 
 interface KeyEventsSectionProps {
   refreshTrigger?: number;
@@ -143,9 +144,21 @@ export const KeyEventsSection = ({ refreshTrigger }: KeyEventsSectionProps) => {
     }
   };
 
-  const fetchBookmarks = async () => {
+  const fetchBookmarks = async (forceRefresh = false) => {
     try {
       setLoading(true);
+      
+      // Try to get from cache first (unless force refresh)
+      if (!forceRefresh) {
+        const cachedBookmarks = cache.get<BookmarkEvent[]>(CACHE_KEYS.BOOKMARKS);
+        if (cachedBookmarks) {
+          console.log(`📦 Using cached bookmarks (${cachedBookmarks.length} items)`);
+          setBookmarks(cachedBookmarks);
+          setLoading(false);
+          return;
+        }
+      }
+      
       const allBookmarks = await bookmarkApiService.getBookmarks();
       
       // Sort bookmarks by actual event datetime (earliest first)
@@ -198,6 +211,9 @@ export const KeyEventsSection = ({ refreshTrigger }: KeyEventsSectionProps) => {
         return eventDateA.getTime() - eventDateB.getTime();
       });
       
+      // Cache the sorted bookmarks
+      cache.set(CACHE_KEYS.BOOKMARKS, sortedBookmarks, { ttl: CACHE_TTL.BOOKMARKS });
+      
       setBookmarks(sortedBookmarks);
     } catch (error) {
       console.error('Error fetching bookmarks:', error);
@@ -209,7 +225,9 @@ export const KeyEventsSection = ({ refreshTrigger }: KeyEventsSectionProps) => {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await fetchBookmarks();
+      // Clear cache and force refresh
+      cache.remove(CACHE_KEYS.BOOKMARKS);
+      await fetchBookmarks(true);
     } finally {
       setRefreshing(false);
     }

@@ -243,10 +243,10 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
   const freeBlocks = getFreeBlocks(eventsWithConvertedTimes, timeFilter, selectedDate);
   
   return (
-    <div className="space-y-4 max-w-2xl">
+    <div className="space-y-4">
       {/* Summary Section */}
       {events.length > 0 && !loading && (
-        <div className="bg-productivity-surface rounded-lg p-3 md:p-4 border border-border">
+        <div className="bg-background rounded-lg p-3 md:p-4 border border-border">
           <div className={cn(
             "gap-4 md:gap-6 text-xs",
             isMobile 
@@ -390,8 +390,8 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
       
       {/* Table */}
       <div className={cn(
-        "rounded-lg shadow-md overflow-visible",
-        !isMobile && "bg-productivity-surface"
+        "rounded-lg overflow-visible",
+        !isMobile && "bg-background border border-border"
       )}>
       {/* Table Header - Desktop Only */}
       {!isMobile && (

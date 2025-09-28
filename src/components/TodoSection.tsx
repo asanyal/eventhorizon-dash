@@ -4,6 +4,7 @@ import { todoApiService } from '../services/todoApi';
 import { cn } from '../lib/utils';
 import { X, RefreshCw } from 'lucide-react';
 import { useTimezone } from '../contexts/TimezoneContext';
+import { cache, CACHE_KEYS, CACHE_TTL } from '../utils/cacheUtils';
 
 
 // Helper function to format date as "Sep 23" with timezone conversion
@@ -27,10 +28,24 @@ export const TodoSection = () => {
     fetchTodos();
   }, []);
 
-  const fetchTodos = async () => {
+  const fetchTodos = async (forceRefresh = false) => {
     try {
+      // Try to get from cache first (unless force refresh)
+      if (!forceRefresh) {
+        const cachedTodos = cache.get<TodoItem[]>(CACHE_KEYS.TODOS());
+        if (cachedTodos) {
+          console.log(`📦 Using cached todos (${cachedTodos.length} items)`);
+          setTodos(cachedTodos);
+          return;
+        }
+      }
+      
       // Get ALL todos regardless of priority/urgency
       const allTodos = await todoApiService.getTodos({});
+      
+      // Cache the todos
+      cache.set(CACHE_KEYS.TODOS(), allTodos, { ttl: CACHE_TTL.TODOS });
+      
       setTodos(allTodos);
     } catch (error) {
       console.error('Error fetching todos:', error);
@@ -40,7 +55,9 @@ export const TodoSection = () => {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await fetchTodos();
+      // Clear cache and force refresh
+      cache.remove(CACHE_KEYS.TODOS());
+      await fetchTodos(true);
     } finally {
       setRefreshing(false);
     }
@@ -62,7 +79,9 @@ export const TodoSection = () => {
       setTitle('');
       setPriority('low');
       setUrgency('low');
-      await fetchTodos(); // Refresh the list
+      // Clear cache and refresh the list
+      cache.remove(CACHE_KEYS.TODOS());
+      await fetchTodos(true);
     } catch (error) {
       console.error('Error creating todo:', error);
     } finally {
@@ -73,8 +92,9 @@ export const TodoSection = () => {
   const handleDelete = async (todoTitle: string) => {
     try {
       await todoApiService.deleteTodoByTitle(todoTitle);
-      // Refresh the list after successful deletion
-      await fetchTodos();
+      // Clear cache and refresh the list after successful deletion
+      cache.remove(CACHE_KEYS.TODOS());
+      await fetchTodos(true);
     } catch (error) {
       console.error('Error deleting todo:', error);
     }

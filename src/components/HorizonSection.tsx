@@ -3,6 +3,7 @@ import { HorizonItem, CreateHorizonRequest, EditHorizonRequest, HorizonType } fr
 import { horizonApiService } from '../services/horizonApi';
 import { cn } from '../lib/utils';
 import { X, RefreshCw, Plus, Pencil, HelpCircle } from 'lucide-react';
+import { cache, CACHE_KEYS, CACHE_TTL } from '../utils/cacheUtils';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Textarea } from './ui/textarea';
@@ -93,8 +94,18 @@ export const HorizonSection = () => {
     return () => document.removeEventListener('keydown', handleEscape);
   }, []);
 
-  const fetchHorizons = async () => {
+  const fetchHorizons = async (forceRefresh = false) => {
     try {
+      // Try to get from cache first (unless force refresh)
+      if (!forceRefresh) {
+        const cachedHorizons = cache.get<HorizonItem[]>(CACHE_KEYS.HORIZONS);
+        if (cachedHorizons) {
+          console.log(`📦 Using cached horizons (${cachedHorizons.length} items)`);
+          setHorizons(cachedHorizons);
+          return;
+        }
+      }
+      
       const allHorizons = await horizonApiService.getHorizons();
       
       // Sort horizons by date - earliest first
@@ -114,6 +125,9 @@ export const HorizonSection = () => {
         return dateA.getTime() - dateB.getTime();
       });
       
+      // Cache the sorted horizons
+      cache.set(CACHE_KEYS.HORIZONS, sortedHorizons, { ttl: CACHE_TTL.HORIZONS });
+      
       setHorizons(sortedHorizons);
     } catch (error) {
       console.error('Error fetching horizons:', error);
@@ -123,7 +137,9 @@ export const HorizonSection = () => {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await fetchHorizons();
+      // Clear cache and force refresh
+      cache.remove(CACHE_KEYS.HORIZONS);
+      await fetchHorizons(true);
     } finally {
       setRefreshing(false);
     }
@@ -157,7 +173,9 @@ export const HorizonSection = () => {
       }
       
       handleCloseModal();
-      await fetchHorizons(); // Refresh the list
+      // Clear cache and refresh the list
+      cache.remove(CACHE_KEYS.HORIZONS);
+      await fetchHorizons(true);
     } catch (error) {
       console.error('Error saving horizon:', error);
     } finally {
@@ -188,8 +206,9 @@ export const HorizonSection = () => {
   const handleDelete = async (horizonTitle: string) => {
     try {
       await horizonApiService.deleteHorizonByTitle(horizonTitle);
-      // Refresh the list after successful deletion
-      await fetchHorizons();
+      // Clear cache and refresh the list after successful deletion
+      cache.remove(CACHE_KEYS.HORIZONS);
+      await fetchHorizons(true);
     } catch (error) {
       console.error('Error deleting horizon:', error);
     }

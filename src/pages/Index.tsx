@@ -9,11 +9,12 @@ import { TimezoneProvider, useTimezone } from '../contexts/TimezoneContext';
 import { useCalendarEvents } from '../hooks/useCalendarEvents';
 import { TimeFilter, CalendarEvent } from '../types/calendar';
 import { getTimeUntilEvent } from '../utils/dateUtils';
-import { Calendar, RefreshCw, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar, RefreshCw, AlertCircle, ChevronLeft, ChevronRight, PartyPopper, Heart } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { bookmarkApiService } from '../services/bookmarkApi';
 import { BookmarkEvent } from '../types/bookmark';
+import { cache, CACHE_KEYS, CACHE_TTL } from '../utils/cacheUtils';
 
 // Helper function to get greeting based on time of day
 const getGreeting = (time: Date, convertTime: (date: Date) => Date) => {
@@ -48,13 +49,16 @@ const getNextMeetingInfo = (todayEvents: CalendarEvent[], tomorrowEvents: Calend
   };
   
   // Find next meeting today (future events only, excluding all-day events)
-  const futureTodayEvents = todayEvents.filter(event => 
-    event.startTime.getTime() > now.getTime() && !event.all_day
-  );
+  const futureTodayEvents = todayEvents.filter(event => {
+    // Ensure startTime is a Date object
+    const startTime = event.startTime instanceof Date ? event.startTime : new Date(event.startTime);
+    return startTime.getTime() > now.getTime() && !event.all_day;
+  });
   
   if (futureTodayEvents.length > 0) {
     const nextEvent = futureTodayEvents[0]; // Events should be sorted by time
-    const timeUntil = getTimeUntilEvent(nextEvent.startTime); // Use original time for interval calculation
+    const startTime = nextEvent.startTime instanceof Date ? nextEvent.startTime : new Date(nextEvent.startTime);
+    const timeUntil = getTimeUntilEvent(startTime); // Use original time for interval calculation
     const truncatedTitle = truncateTitle(nextEvent.title);
     return {
       prefix: "Your next meeting is",
@@ -67,7 +71,8 @@ const getNextMeetingInfo = (todayEvents: CalendarEvent[], tomorrowEvents: Calend
   const tomorrowTimedEvents = tomorrowEvents.filter(event => !event.all_day);
   if (tomorrowTimedEvents.length > 0) {
     const firstTomorrowEvent = tomorrowTimedEvents[0]; // First meeting tomorrow
-    const timeUntil = getTimeUntilEvent(firstTomorrowEvent.startTime); // Use original time for interval calculation
+    const startTime = firstTomorrowEvent.startTime instanceof Date ? firstTomorrowEvent.startTime : new Date(firstTomorrowEvent.startTime);
+    const timeUntil = getTimeUntilEvent(startTime); // Use original time for interval calculation
     const truncatedTitle = truncateTitle(firstTomorrowEvent.title);
     return {
       prefix: "Your next meeting is",
@@ -83,18 +88,31 @@ const getNextMeetingInfo = (todayEvents: CalendarEvent[], tomorrowEvents: Calend
   };
 };
 
+type PageType = 'calendar' | 'health' | 'holidays';
+
 const IndexContent = () => {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('today');
   const [selectedDate, setSelectedDate] = useState<string>(''); // YYYY-MM-DD format
   const [currentTime, setCurrentTime] = useState(new Date());
   const [bookmarkRefreshTrigger, setBookmarkRefreshTrigger] = useState(0);
   const [bookmarkedEventTitles, setBookmarkedEventTitles] = useState<string[]>([]);
+  const [currentPage, setCurrentPage] = useState<PageType>('calendar');
   const { convertTime } = useTimezone();
   const { events, loading, error, refetch } = useCalendarEvents(timeFilter, selectedDate);
   
   // Get today's and tomorrow's events for next meeting info
   const { events: todayEvents } = useCalendarEvents('today');
   const { events: tomorrowEvents } = useCalendarEvents('tomorrow');
+
+  // Clear any corrupted cache on app startup (one-time fix)
+  useEffect(() => {
+    const hasCleared = localStorage.getItem('eventhorizon_cache_cleared_v1');
+    if (!hasCleared) {
+      console.log('🧹 Clearing potentially corrupted cache on startup');
+      cache.clear();
+      localStorage.setItem('eventhorizon_cache_cleared_v1', 'true');
+    }
+  }, []);
 
   // Update clock every minute
   useEffect(() => {
@@ -109,8 +127,20 @@ const IndexContent = () => {
   useEffect(() => {
     const fetchBookmarkedEventTitles = async () => {
       try {
+        // Try to get from cache first
+        const cachedTitles = cache.get<string[]>(CACHE_KEYS.BOOKMARK_TITLES);
+        if (cachedTitles) {
+          console.log(`📦 Using cached bookmark titles (${cachedTitles.length} items)`);
+          setBookmarkedEventTitles(cachedTitles);
+          return;
+        }
+        
         const bookmarks = await bookmarkApiService.getBookmarks();
         const titles = bookmarks.map(bookmark => bookmark.event_title);
+        
+        // Cache the titles
+        cache.set(CACHE_KEYS.BOOKMARK_TITLES, titles, { ttl: CACHE_TTL.BOOKMARKS });
+        
         setBookmarkedEventTitles(titles);
       } catch (error) {
         console.error('Error fetching bookmarked event titles:', error);
@@ -155,6 +185,10 @@ const IndexContent = () => {
   };
 
   const handleBookmarkCreated = () => {
+    // Clear bookmark-related caches
+    cache.remove(CACHE_KEYS.BOOKMARKS);
+    cache.remove(CACHE_KEYS.BOOKMARK_TITLES);
+    
     // Trigger refresh of KeyEventsSection
     setBookmarkRefreshTrigger(prev => prev + 1);
   };
@@ -197,100 +231,164 @@ const IndexContent = () => {
           </div>
         </div>
 
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-          {/* Left Column - Calendar Events */}
-          <div>
-            {/* Filter Controls */}
-            <div className="mb-4">
-              {/* Mobile: Stack controls vertically */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-2">
-                {/* Primary filters row */}
-                <div className="flex items-center gap-2 flex-1">
-                  <TimeFilterDropdown 
-                    value={timeFilter} 
-                    onChange={(value) => {
-                      setTimeFilter(value);
-                      setSelectedDate('');
-                    }}
-                    isDateSelected={!!selectedDate}
-                  />
-                  
-                  <input
-                    type="date"
-                    value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value)}
-                    className="px-2 py-1 text-xs border border-border rounded bg-background text-productivity-text-primary focus:outline-none focus:ring-1 focus:ring-primary w-32 sm:w-28"
-                    title="Select specific date"
-                  />
-                  
-                  {selectedDate && (
-                    <Button
-                      onClick={() => setSelectedDate('')}
-                      variant="outline"
-                      size="sm"
-                      className="p-1 h-7 w-7 flex-shrink-0"
-                      title="Clear date"
-                    >
-                      ×
-                    </Button>
-                  )}
-                </div>
-                
-                {/* Navigation and action buttons */}
-                <div className="flex items-center gap-2 justify-center sm:justify-start">
-                  <Button
-                    onClick={() => navigateTimeFilter('prev')}
-                    variant="outline"
-                    size="sm"
-                    className="p-1 h-7 w-7"
-                    title="Previous"
-                  >
-                    <ChevronLeft className="w-3 h-3" />
-                  </Button>
-                  <Button
-                    onClick={() => navigateTimeFilter('next')}
-                    variant="outline"
-                    size="sm"
-                    className="p-1 h-7 w-7"
-                    title="Next"
-                  >
-                    <ChevronRight className="w-3 h-3" />
-                  </Button>
-
-                  <Button
-                    onClick={refetch}
-                    disabled={loading}
-                    variant="outline"
-                    size="sm"
-                    className="p-1 h-7 w-7"
-                    title="Refresh"
-                  >
-                    <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
-                  </Button>
-                </div>
+        {/* Navigation Menu Bar */}
+        <div className="mb-6 md:mb-8">
+          <div className="flex items-center justify-center">
+            <div className="bg-productivity-surface rounded-full p-1 border border-border shadow-sm">
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setCurrentPage('calendar')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                    currentPage === 'calendar'
+                      ? 'bg-blue-500 text-white shadow-sm'
+                      : 'text-productivity-text-secondary hover:text-productivity-text-primary hover:bg-background'
+                  }`}
+                >
+                  <Calendar className="w-4 h-4" />
+                  Calendar
+                </button>
+                <button
+                  onClick={() => setCurrentPage('health')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                    currentPage === 'health'
+                      ? 'bg-red-500 text-white shadow-sm'
+                      : 'text-productivity-text-secondary hover:text-productivity-text-primary hover:bg-background'
+                  }`}
+                >
+                  <Heart className="w-4 h-4" />
+                  Health
+                </button>
+                <button
+                  onClick={() => setCurrentPage('holidays')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                    currentPage === 'holidays'
+                      ? 'bg-orange-500 text-white shadow-sm'
+                      : 'text-productivity-text-secondary hover:text-productivity-text-primary hover:bg-background'
+                  }`}
+                >
+                  <PartyPopper className="w-4 h-4" />
+                  Holidays
+                </button>
               </div>
             </div>
+          </div>
+        </div>
 
-            {/* Error Alert */}
-            {error && (
-              <Alert className="mb-6" variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  Failed to load events: {error}
-                </AlertDescription>
-              </Alert>
-            )}
+        {/* Main Content */}
+        {currentPage === 'calendar' ? (
+          /* Calendar Page Content */
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+          {/* Left Column - Calendar Events */}
+          <div>
+            {/* Calendar Events Container */}
+            <div className="bg-productivity-surface rounded-lg border border-border max-h-[800px] overflow-hidden flex flex-col">
+              {/* Title and Filter Controls */}
+              <div className="p-4 pb-0 flex-shrink-0">
+                {/* Events Title */}
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-lg font-semibold text-productivity-text-primary flex items-center gap-2">
+                      <Calendar className="w-5 h-5 text-green-500" />
+                      Events
+                    </h3>
+                    {/* Event count badge */}
+                    {!loading && events.length > 0 && (
+                      <div className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full border border-green-200">
+                        {events.length}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => (refetch as (forceRefresh?: boolean) => void)(true)}
+                    disabled={loading}
+                    className="p-1 text-productivity-text-secondary hover:text-productivity-text-primary transition-colors"
+                    title="Refresh Events"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                  </button>
+                </div>
+                <div className="mb-4">
+                {/* Mobile: Stack controls vertically */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-2">
+                  {/* Primary filters row */}
+                  <div className="flex items-center gap-2 flex-1">
+                    <TimeFilterDropdown 
+                      value={timeFilter} 
+                      onChange={(value) => {
+                        setTimeFilter(value);
+                        setSelectedDate('');
+                      }}
+                      isDateSelected={!!selectedDate}
+                    />
+                    
+                    <input
+                      type="date"
+                      value={selectedDate}
+                      onChange={(e) => setSelectedDate(e.target.value)}
+                      className="px-2 py-1 text-xs border border-border rounded bg-background text-productivity-text-primary focus:outline-none focus:ring-1 focus:ring-primary w-32 sm:w-28"
+                      title="Select specific date"
+                    />
+                    
+                    {selectedDate && (
+                      <Button
+                        onClick={() => setSelectedDate('')}
+                        variant="outline"
+                        size="sm"
+                        className="p-1 h-7 w-7 flex-shrink-0"
+                        title="Clear date"
+                      >
+                        ×
+                      </Button>
+                    )}
+                  </div>
+                  
+                  {/* Navigation buttons */}
+                  <div className="flex items-center gap-2 justify-center sm:justify-start">
+                    <Button
+                      onClick={() => navigateTimeFilter('prev')}
+                      variant="outline"
+                      size="sm"
+                      className="p-1 h-7 w-7"
+                      title="Previous"
+                    >
+                      <ChevronLeft className="w-3 h-3" />
+                    </Button>
+                    <Button
+                      onClick={() => navigateTimeFilter('next')}
+                      variant="outline"
+                      size="sm"
+                      className="p-1 h-7 w-7"
+                      title="Next"
+                    >
+                      <ChevronRight className="w-3 h-3" />
+                    </Button>
+                  </div>
+                </div>
+                </div>
 
-            {/* Events List */}
-            <CalendarEventsList 
-              events={events} 
-              timeFilter={timeFilter}
-              loading={loading}
-              onBookmarkCreated={handleBookmarkCreated}
-              selectedDate={selectedDate}
-              bookmarkedEventTitles={bookmarkedEventTitles}
-            />
+                {/* Error Alert */}
+                {error && (
+                  <Alert className="mb-6" variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      Failed to load events: {error}
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
+
+              {/* Events List - Scrollable */}
+              <div className="flex-1 overflow-y-auto px-4 pb-4">
+                <CalendarEventsList 
+                  events={events} 
+                  timeFilter={timeFilter}
+                  loading={loading}
+                  onBookmarkCreated={handleBookmarkCreated}
+                  selectedDate={selectedDate}
+                  bookmarkedEventTitles={bookmarkedEventTitles}
+                />
+              </div>
+            </div>
             
             {/* TODO Section - moved below Calendar Events */}
             <div className="mt-4 md:mt-6">
@@ -303,7 +401,30 @@ const IndexContent = () => {
             <KeyEventsSection refreshTrigger={bookmarkRefreshTrigger} />
             <HorizonSection />
           </div>
-        </div>
+          </div>
+        ) : currentPage === 'health' ? (
+          /* Health Page Content */
+          <div className="flex items-center justify-center py-16">
+            <div className="text-center">
+              <Heart className="w-16 h-16 text-red-500 mx-auto mb-4" />
+              <h2 className="text-2xl font-bold text-productivity-text-primary mb-2">Health Page</h2>
+              <p className="text-productivity-text-secondary">
+                Coming soon! This will show health tracking and wellness information.
+              </p>
+            </div>
+          </div>
+        ) : (
+          /* Holidays Page Content */
+          <div className="flex items-center justify-center py-16">
+            <div className="text-center">
+              <PartyPopper className="w-16 h-16 text-orange-500 mx-auto mb-4" />
+              <h2 className="text-2xl font-bold text-productivity-text-primary mb-2">Holidays Page</h2>
+              <p className="text-productivity-text-secondary">
+                Coming soon! This will show holiday information and events.
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
