@@ -6,6 +6,7 @@ import { Bookmark, FileText } from 'lucide-react';
 import { bookmarkApiService } from '../services/bookmarkApi';
 import { CreateBookmarkRequest } from '../types/bookmark';
 import { useTimezone } from '../contexts/TimezoneContext';
+import { useSimpleView } from '../contexts/SimpleViewContext';
 import { useIsMobile } from '../hooks/use-mobile';
 
 interface CalendarEventsListProps {
@@ -180,6 +181,7 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
   const [pinnedTooltip, setPinnedTooltip] = useState<string | null>(null);
   const [meetingTypeFilter, setMeetingTypeFilter] = useState<'all' | 'internal' | 'external'>('all');
   const { convertTime } = useTimezone();
+  const { isSimpleView } = useSimpleView();
   const isMobile = useIsMobile();
 
   // Handle escape key to close pinned tooltip
@@ -242,6 +244,107 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
   const timeDistribution = getTimeDistribution(eventsWithConvertedTimes);
   const freeBlocks = getFreeBlocks(eventsWithConvertedTimes, timeFilter, selectedDate);
   
+  // Simple View - Show only essential information
+  if (isSimpleView) {
+    return (
+      <div className="space-y-4">
+        {/* Simple View - Free Times Only */}
+        {events.length > 0 && !loading && freeBlocks.length > 0 && (
+          <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+            <h3 className="text-lg font-semibold text-green-800 mb-3">Free Time</h3>
+            <div className="space-y-2">
+              {freeBlocks.map((block, idx) => (
+                <div key={idx} className="flex items-center justify-between bg-white rounded-lg p-3 border border-green-100">
+                  <div className="text-base font-medium text-green-800">
+                    {block.duration} free
+                  </div>
+                  <div className="text-sm text-green-600">
+                    at {block.time}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Simple View - Events List */}
+        <div className="space-y-3">
+          {loading ? (
+            <div className="text-center py-8 text-lg text-gray-500">
+              Loading events...
+            </div>
+          ) : events.length === 0 ? (
+            <div className="text-center py-8 text-lg text-gray-500">
+              No events found
+            </div>
+          ) : (
+            (() => {
+              const filteredEvents = events.filter(event => {
+                const isPastEvent = event.startTime.getTime() < new Date().getTime();
+                return showPastEvents || !isPastEvent;
+              });
+              
+              return filteredEvents.map((event, index) => {
+                const convertedEvent = {
+                  ...event,
+                  startTime: convertTime(event.startTime)
+                };
+                
+                const isPastEvent = event.startTime.getTime() < new Date().getTime();
+                const isBookmarked = bookmarkedEventTitles.includes(event.title);
+                
+                return (
+                  <div
+                    key={event.id}
+                    className={cn(
+                      "bg-white rounded-lg p-4 border-2 transition-all duration-200",
+                      isPastEvent 
+                        ? "border-gray-200 bg-gray-50" 
+                        : "border-blue-200 hover:border-blue-300 hover:shadow-md"
+                    )}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className={cn(
+                          "text-lg font-semibold mb-1",
+                          isPastEvent ? "text-gray-500 line-through" : "text-gray-900"
+                        )}>
+                          {event.title}
+                        </div>
+                        <div className="text-sm text-gray-600 mb-2">
+                          {formatMinimalDate(convertedEvent.startTime)}
+                        </div>
+                        <div className={cn(
+                          "text-base font-medium",
+                          isPastEvent ? "text-gray-400" : "text-blue-600"
+                        )}>
+                          {event.all_day ? "All Day" : getTimeUntilEvent(event.startTime)}
+                        </div>
+                      </div>
+                      
+                      <button
+                        onClick={() => handleBookmark(event)}
+                        className={cn(
+                          "p-2 rounded-full transition-colors",
+                          isBookmarked 
+                            ? "text-blue-500 bg-blue-50 hover:bg-blue-100" 
+                            : "text-gray-400 hover:text-blue-500 hover:bg-blue-50"
+                        )}
+                        title={isBookmarked ? "Remove bookmark" : "Bookmark event"}
+                      >
+                        <Bookmark className={cn("w-5 h-5", isBookmarked && "fill-current")} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              });
+            })()
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       {/* Summary Section */}

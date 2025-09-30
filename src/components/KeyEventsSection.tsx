@@ -4,6 +4,7 @@ import { bookmarkApiService } from '../services/bookmarkApi';
 import { cn } from '../lib/utils';
 import { X, RefreshCw, BookmarkCheck } from 'lucide-react';
 import { useTimezone } from '../contexts/TimezoneContext';
+import { useSimpleView } from '../contexts/SimpleViewContext';
 import { getIntervalColor } from '../utils/dateUtils';
 import { cache, CACHE_KEYS, CACHE_TTL } from '../utils/cacheUtils';
 
@@ -18,6 +19,7 @@ export const KeyEventsSection = ({ refreshTrigger, onBookmarkDeleted }: KeyEvent
   const [refreshing, setRefreshing] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const { convertTime } = useTimezone();
+  const { isSimpleView } = useSimpleView();
 
   // Fetch bookmarks on component mount and when refreshTrigger changes
   useEffect(() => {
@@ -252,6 +254,78 @@ export const KeyEventsSection = ({ refreshTrigger, onBookmarkDeleted }: KeyEvent
       console.error('Error deleting bookmark:', error);
     }
   };
+
+  // Simple View - Show only essential information
+  if (isSimpleView) {
+    const futureBookmarks = bookmarks.filter((bookmark) => {
+      const realtimeCountdown = getRealtimeCountdown(bookmark);
+      return !realtimeCountdown.includes("ago");
+    });
+
+    return (
+      <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-blue-800 flex items-center gap-2">
+            <BookmarkCheck className="w-5 h-5 text-blue-600" />
+            Important Events
+          </h3>
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="p-2 text-blue-600 hover:text-blue-800 transition-colors"
+            title="Refresh"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          {loading ? (
+            <div className="text-center py-8 text-lg text-blue-600">
+              Loading events...
+            </div>
+          ) : futureBookmarks.length === 0 ? (
+            <div className="text-center py-8 text-lg text-blue-600">
+              No important events
+            </div>
+          ) : (
+            futureBookmarks.map((bookmark, index) => {
+              const realtimeCountdown = getRealtimeCountdown(bookmark);
+              
+              return (
+                <div
+                  key={bookmark.id || index}
+                  className="bg-white rounded-lg p-4 border-2 border-blue-200 hover:border-blue-300 transition-all duration-200"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="text-lg font-semibold text-gray-900 mb-1">
+                        {bookmark.event_title}
+                      </div>
+                      <div className="text-sm text-gray-600 mb-2">
+                        {bookmark.date}
+                      </div>
+                      <div className="text-base font-medium text-blue-600">
+                        {realtimeCountdown}
+                      </div>
+                    </div>
+                    
+                    <button
+                      onClick={() => handleUnbookmark(bookmark.event_title)}
+                      className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                      title="Remove from important events"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-productivity-surface rounded-lg p-4 border border-border">

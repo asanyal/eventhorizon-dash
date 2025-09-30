@@ -5,6 +5,7 @@ import { todoApiService } from '../services/todoApi';
 import { cn } from '../lib/utils';
 import { X, RefreshCw, GripVertical } from 'lucide-react';
 import { useTimezone } from '../contexts/TimezoneContext';
+import { useSimpleView } from '../contexts/SimpleViewContext';
 import { cache, CACHE_KEYS, CACHE_TTL } from '../utils/cacheUtils';
 
 
@@ -53,6 +54,7 @@ export const TodoSection = () => {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const { convertTime } = useTimezone();
+  const { isSimpleView } = useSimpleView();
 
   // Fetch todos on component mount
   useEffect(() => {
@@ -148,6 +150,97 @@ export const TodoSection = () => {
       console.error('Error deleting todo:', error);
     }
   };
+
+  // Simple View - Show only essential information
+  if (isSimpleView) {
+    return (
+      <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-green-800">
+            My Tasks
+          </h3>
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="p-2 text-green-600 hover:text-green-800 transition-colors"
+            title="Refresh"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
+
+        {/* Simple Add Form */}
+        <form onSubmit={handleSubmit} className="mb-4">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Add a task..."
+              className="flex-1 px-3 py-2 text-base border border-green-300 rounded-md bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              disabled={loading}
+            />
+            <button
+              type="submit"
+              disabled={loading || !title.trim()}
+              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Add
+            </button>
+          </div>
+        </form>
+
+        {/* Simple Tasks List */}
+        <div className="space-y-3">
+          {todos.length === 0 ? (
+            <div className="text-center py-8 text-lg text-green-600">
+              All done! 🎉
+            </div>
+          ) : (
+            todos.map((todo, index) => {
+              const isHighPriority = todo.priority === 'high' || todo.urgency === 'high';
+              
+              return (
+                <div
+                  key={todo.id || index}
+                  className={cn(
+                    "bg-white rounded-lg p-4 border-2 transition-all duration-200",
+                    isHighPriority 
+                      ? "border-red-200 hover:border-red-300" 
+                      : "border-green-200 hover:border-green-300"
+                  )}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className={cn(
+                        "text-lg font-semibold mb-1",
+                        isHighPriority ? "text-red-800" : "text-gray-900"
+                      )}>
+                        {todo.title}
+                      </div>
+                      {todo.created_at && (
+                        <div className="text-sm text-gray-600">
+                          Added {formatDate(todo.created_at, convertTime)}
+                        </div>
+                      )}
+                    </div>
+                    
+                    <button
+                      onClick={() => handleDelete(todo.title)}
+                      className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                      title="Complete task"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-productivity-surface rounded-lg p-4 border border-border">

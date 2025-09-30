@@ -10,6 +10,7 @@ import { Textarea } from './ui/textarea';
 import { Input } from './ui/input';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { useTimezone } from '../contexts/TimezoneContext';
+import { useSimpleView } from '../contexts/SimpleViewContext';
 
 // Helper function to format date as "Sep 23" with timezone conversion
 const formatDate = (dateString: string, convertTime: (date: Date) => Date): string => {
@@ -76,6 +77,7 @@ export const HorizonSection = () => {
   const [selectedFilters, setSelectedFilters] = useState<Set<'Event' | 'Meeting' | 'Others'>>(new Set());
   const [pinnedTooltip, setPinnedTooltip] = useState<string | null>(null);
   const { convertTime } = useTimezone();
+  const { isSimpleView } = useSimpleView();
 
   // Fetch horizons on component mount
   useEffect(() => {
@@ -241,6 +243,151 @@ export const HorizonSection = () => {
     if (selectedFilters.has('Others') && horizon.type !== 'Event' && horizon.type !== 'Meeting') return true;
     return false;
   });
+
+  // Simple View - Show only essential information
+  if (isSimpleView) {
+    return (
+      <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-orange-800">
+            Future Plans
+          </h3>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="p-2 text-orange-600 hover:text-orange-800 transition-colors"
+              title="Refresh"
+            >
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            </button>
+            
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="px-3 py-1 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors text-sm font-medium"
+            >
+              Add Plan
+            </button>
+          </div>
+        </div>
+
+        {/* Simple Add Modal */}
+        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Add New Plan</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label htmlFor="horizon-title" className="block text-sm font-medium text-gray-700 mb-1">
+                  What's your plan?
+                </label>
+                <Input
+                  id="horizon-title"
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Enter your plan..."
+                  className="w-full text-base"
+                  disabled={loading}
+                  required
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="horizon-date" className="block text-sm font-medium text-gray-700 mb-1">
+                  When? (optional)
+                </label>
+                <Input
+                  id="horizon-date"
+                  type="date"
+                  value={horizonDate}
+                  onChange={(e) => setHorizonDate(e.target.value)}
+                  className="w-full"
+                  disabled={loading}
+                />
+              </div>
+              
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleCloseModal}
+                  disabled={loading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={loading || !title.trim()}
+                >
+                  {loading ? 'Adding...' : 'Add Plan'}
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Simple Plans List */}
+        <div className="space-y-3">
+          {horizons.length === 0 ? (
+            <div className="text-center py-8 text-lg text-orange-600">
+              No plans yet
+            </div>
+          ) : (
+            horizons.map((horizon, index) => {
+              const horizonId = horizon.id || `horizon-${index}`;
+              const validHorizonDate = horizon.horizon_date && horizon.horizon_date !== 'null' ? horizon.horizon_date : null;
+              const dateToShow = validHorizonDate || horizon.created_at;
+              const daysUntil = validHorizonDate ? getDaysUntilEvent(validHorizonDate, convertTime) : '';
+              
+              return (
+                <div
+                  key={horizonId}
+                  className="bg-white rounded-lg p-4 border-2 border-orange-200 hover:border-orange-300 transition-all duration-200"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="text-lg font-semibold text-gray-900 mb-1">
+                        {horizon.title}
+                      </div>
+                      {dateToShow && (
+                        <div className="text-sm text-gray-600 mb-1">
+                          {formatDate(dateToShow, convertTime)}
+                        </div>
+                      )}
+                      {daysUntil && (
+                        <div className="text-base font-medium text-orange-600">
+                          {daysUntil}
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleEditHorizon(horizon)}
+                        className="p-2 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+                        title="Edit plan"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(horizon.title)}
+                        className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                        title="Delete plan"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-productivity-surface rounded-lg p-4 border border-border">
