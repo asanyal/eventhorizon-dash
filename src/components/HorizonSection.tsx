@@ -346,22 +346,45 @@ export const HorizonSection = () => {
                   key={horizonId}
                   className="bg-white rounded-lg p-4 border-2 border-orange-200 hover:border-orange-300 transition-all duration-200"
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    {/* Interval Cell */}
+                    {daysUntil && (
+                      <div className="flex-shrink-0 w-[10%] min-w-[80px]">
+                        {(() => {
+                          const isSoon = daysUntil.includes('day') && !daysUntil.includes('days');
+                          const isUrgent = daysUntil.includes('Today') || daysUntil.includes('day') && !daysUntil.includes('days');
+                          
+                          return (
+                            <div className={cn(
+                              "rounded-lg p-2 border-l-4 text-center",
+                              isUrgent 
+                                ? "bg-red-100 border-red-400 text-red-800" 
+                                : isSoon
+                                ? "bg-orange-100 border-orange-400 text-orange-800"
+                                : "bg-orange-50 border-orange-300 text-orange-700"
+                            )}>
+                              <div className="text-base font-bold">
+                                {daysUntil.replace('In ', '')}
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
+                    
+                    {/* Plan Title */}
                     <div className="flex-1">
-                      <div className="text-lg font-semibold text-gray-900 mb-1">
+                      <div className="text-lg font-semibold text-gray-900">
                         {horizon.title}
                       </div>
-                      {dateToShow && (
-                        <div className="text-sm text-gray-600 mb-1">
-                          {formatDate(dateToShow, convertTime)}
-                        </div>
-                      )}
-                      {daysUntil && (
-                        <div className="text-base font-medium text-orange-600">
-                          {daysUntil}
-                        </div>
-                      )}
                     </div>
+                    
+                    {/* Date on Right Side */}
+                    {dateToShow && (
+                      <div className="flex-shrink-0 text-sm text-gray-600">
+                        {formatDate(dateToShow, convertTime)}
+                      </div>
+                    )}
                     
                     <div className="flex items-center gap-2">
                       <button

@@ -5,6 +5,7 @@ import { TodoSection } from '../components/TodoSection';
 import { HorizonSection } from '../components/HorizonSection';
 import { KeyEventsSection } from '../components/KeyEventsSection';
 import { HolidaysSection } from '../components/HolidaysSection';
+import { TimezoneSelector } from '../components/TimezoneSelector';
 import { TimezoneProvider, useTimezone } from '../contexts/TimezoneContext';
 import { useCalendarEvents } from '../hooks/useCalendarEvents';
 import { TimeFilter, CalendarEvent } from '../types/calendar';
@@ -16,20 +17,6 @@ import { bookmarkApiService } from '../services/bookmarkApi';
 import { BookmarkEvent } from '../types/bookmark';
 import { cache, CACHE_KEYS, CACHE_TTL } from '../utils/cacheUtils';
 
-// Helper function to get system timezone
-const getSystemTimezone = (): string => {
-  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const offset = new Date().getTimezoneOffset();
-  const offsetHours = Math.abs(offset) / 60;
-  const offsetMinutes = Math.abs(offset) % 60;
-  const sign = offset <= 0 ? '+' : '-';
-  const offsetStr = `${sign}${offsetHours.toString().padStart(2, '0')}:${offsetMinutes.toString().padStart(2, '0')}`;
-  
-  // Extract city name from timezone (e.g., "Europe/London" -> "London")
-  const cityName = timezone.split('/').pop()?.replace(/_/g, ' ') || timezone;
-  
-  return `${cityName} (UTC${offsetStr})`;
-};
 
 // Helper function to get greeting based on time of day
 // Uses system time (no timezone conversion) for greeting
@@ -223,9 +210,7 @@ const IndexContent = () => {
                 Wake Up
               </h1>
             </div>
-            <div className="text-sm text-productivity-text-secondary font-medium">
-              {getSystemTimezone()}
-            </div>
+            <TimezoneSelector />
           </div>
           <p className="text-sm md:text-base text-productivity-text-secondary mb-3 md:mb-4">
             Each moment is wide open.

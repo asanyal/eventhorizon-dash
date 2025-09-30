@@ -118,8 +118,8 @@ export const KeyEventsSection = ({ refreshTrigger, onBookmarkDeleted }: KeyEvent
           // 0-15 minutes: round down to whole hour
           return `In ${wholeHours} hours`;
         } else if (minutes <= 45) {
-          // 15-45 minutes: show as .5 hours
-          return `In ${wholeHours}.5 hours`;
+          // 15-45 minutes: show as 1/2 hours
+          return `In ${wholeHours} ½ hours`;
         } else {
           // 45-60 minutes: round up to next whole hour
           return `In ${wholeHours + 1} hours`;
@@ -134,8 +134,8 @@ export const KeyEventsSection = ({ refreshTrigger, onBookmarkDeleted }: KeyEvent
           // 0-6 hours: round down to whole day
           return `In ${wholeDays} days`;
         } else if (remainingHours <= 18) {
-          // 6-18 hours: show as .5 days
-          return `In ${wholeDays}.5 days`;
+          // 6-18 hours: show as 1/2 days
+          return `In ${wholeDays} ½ days`;
         } else {
           // 18-24 hours: round up to next whole day
           return `In ${wholeDays + 1} days`;
@@ -297,17 +297,40 @@ export const KeyEventsSection = ({ refreshTrigger, onBookmarkDeleted }: KeyEvent
                   key={bookmark.id || index}
                   className="bg-white rounded-lg p-4 border-2 border-blue-200 hover:border-blue-300 transition-all duration-200"
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    {/* Interval Cell */}
+                    <div className="flex-shrink-0 w-[10%] min-w-[80px]">
+                      {(() => {
+                        const isUrgent = realtimeCountdown.includes('m') || realtimeCountdown.includes('hour');
+                        const isSoon = realtimeCountdown.includes('day') && !realtimeCountdown.includes('days');
+                        
+                        return (
+                          <div className={cn(
+                            "rounded-lg p-2 border-l-4 text-center",
+                            isUrgent 
+                              ? "bg-red-100 border-red-400 text-red-800" 
+                              : isSoon
+                              ? "bg-orange-100 border-orange-400 text-orange-800"
+                              : "bg-orange-50 border-orange-300 text-orange-700"
+                          )}>
+                            <div className="text-base font-bold">
+                              {realtimeCountdown.replace('In ', '')}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                    
+                    {/* Event Title */}
                     <div className="flex-1">
-                      <div className="text-lg font-semibold text-gray-900 mb-1">
+                      <div className="text-lg font-semibold text-gray-900">
                         {bookmark.event_title}
                       </div>
-                      <div className="text-sm text-gray-600 mb-2">
-                        {bookmark.date}
-                      </div>
-                      <div className="text-base font-medium text-blue-600">
-                        {realtimeCountdown}
-                      </div>
+                    </div>
+                    
+                    {/* Date on Right Side */}
+                    <div className="flex-shrink-0 text-sm text-gray-600">
+                      {bookmark.date}
                     </div>
                     
                     <button

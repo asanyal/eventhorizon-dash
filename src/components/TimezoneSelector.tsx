@@ -1,4 +1,4 @@
-import { Clock, Eye, EyeOff } from 'lucide-react';
+import { Clock, Sparkles } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { useTimezone, timezoneOptions } from '../contexts/TimezoneContext';
 import { useSimpleView } from '../contexts/SimpleViewContext';
@@ -22,19 +22,9 @@ export const TimezoneSelector = () => {
             ? "bg-blue-500 text-white border-blue-500 hover:bg-blue-600" 
             : "bg-productivity-surface border-border text-productivity-text-secondary hover:bg-table-row-hover hover:text-productivity-text-primary"
         )}
-        title={isSimpleView ? "Switch to detailed view" : "Switch to simple view (accessibility)"}
+        title={isSimpleView ? "Detailed View" : "Simple View"}
       >
-        {isSimpleView ? (
-          <>
-            <EyeOff className="w-3 h-3 mr-1" />
-            Simple
-          </>
-        ) : (
-          <>
-            <Eye className="w-3 h-3 mr-1" />
-            Simple
-          </>
-        )}
+        <Sparkles className="w-3 h-3 mr-1" />
       </Button>
 
       {/* Timezone Selector */}

@@ -254,12 +254,9 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
             <h3 className="text-lg font-semibold text-green-800 mb-3">Free Time</h3>
             <div className="space-y-2">
               {freeBlocks.map((block, idx) => (
-                <div key={idx} className="flex items-center justify-between bg-white rounded-lg p-3 border border-green-100">
-                  <div className="text-base font-medium text-green-800">
-                    {block.duration} free
-                  </div>
-                  <div className="text-sm text-green-600">
-                    at {block.time}
+                <div key={idx} className="bg-white rounded-lg p-3 border border-green-100">
+                  <div className="text-lg font-semibold text-green-800">
+                    <span className="text-blue-600 font-bold">{block.duration}</span> <span className="text-black">free at {block.time}</span>
                   </div>
                 </div>
               ))}
@@ -297,29 +294,64 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
                   <div
                     key={event.id}
                     className={cn(
-                      "bg-white rounded-lg p-4 border-2 transition-all duration-200",
-                      isPastEvent 
+                      "rounded-lg p-4 border-2 transition-all duration-200",
+                      isBookmarked 
+                        ? "bg-red-50 border-red-200 hover:border-red-300 hover:shadow-md"
+                        : isPastEvent 
                         ? "border-gray-200 bg-gray-50" 
-                        : "border-blue-200 hover:border-blue-300 hover:shadow-md"
+                        : "bg-white border-blue-200 hover:border-blue-300 hover:shadow-md"
                     )}
                   >
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      {/* Interval Cell */}
+                      {!isPastEvent && !event.all_day && (
+                        <div className="flex-shrink-0 w-[10%] min-w-[80px]">
+                          {(() => {
+                            const timeUntil = getTimeUntilEvent(event.startTime);
+                            const isUrgent = timeUntil.includes('m') || timeUntil.includes('hour');
+                            const isSoon = timeUntil.includes('day') && !timeUntil.includes('days');
+                            
+                            return (
+                              <div className={cn(
+                                "rounded-lg p-2 border-l-4 text-center",
+                                isUrgent 
+                                  ? "bg-red-100 border-red-400 text-red-800" 
+                                  : isSoon
+                                  ? "bg-orange-100 border-orange-400 text-orange-800"
+                                  : "bg-orange-50 border-orange-300 text-orange-700"
+                              )}>
+                                <div className="text-base font-bold">
+                                  {timeUntil.replace('In ', '')}
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      )}
+                      
+                      {!isPastEvent && event.all_day && (
+                        <div className="flex-shrink-0 w-[10%] min-w-[80px]">
+                          <div className="bg-indigo-100 border-l-4 border-indigo-400 rounded-lg p-2 text-center">
+                            <div className="text-base font-bold text-indigo-800">
+                              All Day
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Event Title */}
                       <div className="flex-1">
                         <div className={cn(
-                          "text-lg font-semibold mb-1",
+                          "text-lg font-semibold",
                           isPastEvent ? "text-gray-500 line-through" : "text-gray-900"
                         )}>
                           {event.title}
                         </div>
-                        <div className="text-sm text-gray-600 mb-2">
-                          {formatMinimalDate(convertedEvent.startTime)}
-                        </div>
-                        <div className={cn(
-                          "text-base font-medium",
-                          isPastEvent ? "text-gray-400" : "text-blue-600"
-                        )}>
-                          {event.all_day ? "All Day" : getTimeUntilEvent(event.startTime)}
-                        </div>
+                      </div>
+                      
+                      {/* Date on Right Side */}
+                      <div className="flex-shrink-0 text-sm text-gray-600">
+                        {formatMinimalDate(convertedEvent.startTime)}
                       </div>
                       
                       <button
@@ -584,9 +616,11 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
                   <div
                     className={cn(
                       "p-3 mb-3 rounded-lg border transition-all duration-200",
-                      isEven ? "bg-productivity-surface" : "bg-table-row-even",
+                      isBookmarked 
+                        ? "bg-red-50 border-red-200"
+                        : isEven ? "bg-productivity-surface" : "bg-table-row-even",
                       isPastEvent && "opacity-60",
-                      event.all_day && "bg-indigo-50 border-l-4 border-indigo-300",
+                      event.all_day && !isBookmarked && "bg-indigo-50 border-l-4 border-indigo-300",
                       isNextEvent && "ring-2 ring-red-200 border-red-300"
                     )}
                   >
@@ -731,9 +765,11 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
                   <div
                     className={cn(
                       "px-3 py-2 hover:bg-table-row-hover transition-all duration-200",
-                      isEven ? "bg-productivity-surface" : "bg-table-row-even",
+                      isBookmarked 
+                        ? "bg-red-50 hover:bg-red-100"
+                        : isEven ? "bg-productivity-surface" : "bg-table-row-even",
                       isPastEvent && "opacity-60",
-                      event.all_day && "bg-indigo-50 border-l-4 border-indigo-300"
+                      event.all_day && !isBookmarked && "bg-indigo-50 border-l-4 border-indigo-300"
                     )}
                   >
                   <div className="grid grid-cols-12 gap-1 items-center">

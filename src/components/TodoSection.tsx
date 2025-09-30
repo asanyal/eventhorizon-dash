@@ -216,13 +216,13 @@ export const TodoSection = () => {
                         "text-lg font-semibold mb-1",
                         isHighPriority ? "text-red-800" : "text-gray-900"
                       )}>
+                        {todo.created_at && (
+                          <span className="text-base font-medium text-gray-600 mr-2">
+                            {formatDate(todo.created_at, convertTime)} -
+                          </span>
+                        )}
                         {todo.title}
                       </div>
-                      {todo.created_at && (
-                        <div className="text-sm text-gray-600">
-                          Added {formatDate(todo.created_at, convertTime)}
-                        </div>
-                      )}
                     </div>
                     
                     <button

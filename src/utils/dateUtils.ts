@@ -57,8 +57,8 @@ export const getTimeUntilEvent = (eventDate: Date): string => {
       // 0-15 minutes: round down to whole hour
       return `In ${wholeHours} ${wholeHours === 1 ? 'hour' : 'hours'}`;
     } else if (minutes <= 45) {
-      // 15-45 minutes: show as .5 hours
-      return `In ${wholeHours}.5 hours`;
+      // 15-45 minutes: show as 1/2 hours
+      return `In ${wholeHours} ½ hours`;
     } else {
       // 45-60 minutes: round up to next whole hour
       const nextHour = wholeHours + 1;
@@ -74,8 +74,8 @@ export const getTimeUntilEvent = (eventDate: Date): string => {
       // 0-6 hours: round down to whole day
       return `In ${wholeDays} ${wholeDays === 1 ? 'day' : 'days'}`;
     } else if (remainingHours <= 18) {
-      // 6-18 hours: show as .5 days
-      return `In ${wholeDays}.5 days`;
+      // 6-18 hours: show as 1/2 days
+      return `In ${wholeDays} ½ days`;
     } else {
       // 18-24 hours: round up to next whole day
       const nextDay = wholeDays + 1;
