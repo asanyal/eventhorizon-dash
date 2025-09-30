@@ -456,7 +456,7 @@ export const HorizonSection = () => {
                     {/* Left section with tight spacing - Date, Interval, Help, Title */}
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       {/* Date */}
-                      <div className="flex-shrink-0 text-xs text-productivity-text-tertiary w-16">
+                      <div className="flex-shrink-0 text-sm text-productivity-text-tertiary w-16">
                         {(() => {
                           const validHorizonDate = horizon.horizon_date && horizon.horizon_date !== 'null' ? horizon.horizon_date : null;
                           const dateToShow = validHorizonDate || horizon.created_at;
@@ -465,7 +465,7 @@ export const HorizonSection = () => {
                       </div>
 
                       {/* Days Until Date */}
-                      <div className="flex-shrink-0 text-xs text-red-500 font-medium w-20">
+                      <div className="flex-shrink-0 text-sm text-red-500 font-medium w-20">
                         {horizon.horizon_date && horizon.horizon_date !== 'null' 
                           ? getDaysUntilEvent(horizon.horizon_date, convertTime)
                           : ''
@@ -511,7 +511,7 @@ export const HorizonSection = () => {
 
                       {/* Title */}
                       <div className="flex-1 min-w-0">
-                        <div className="text-productivity-text-primary text-xs break-words leading-tight">
+                        <div className="text-productivity-text-primary text-sm break-words leading-tight">
                           {horizon.title}
                         </div>
                       </div>

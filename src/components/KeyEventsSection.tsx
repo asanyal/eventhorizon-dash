@@ -329,16 +329,16 @@ export const KeyEventsSection = ({ refreshTrigger, onBookmarkDeleted }: KeyEvent
               )}
             >
               {/* Date */}
-              <div className="col-span-2 text-xs text-productivity-text-tertiary font-medium">
+              <div className="col-span-2 text-sm text-productivity-text-tertiary font-medium">
                 <div>{bookmark.date}</div>
                 {eventTime && (
-                  <div className="text-[10px] text-productivity-text-secondary">{eventTime}</div>
+                  <div className="text-xs text-productivity-text-secondary">{eventTime}</div>
                 )}
               </div>
 
               {/* Time */}
               <div className={cn(
-                "col-span-2 text-xs font-mono font-medium",
+                "col-span-2 text-sm font-mono font-medium",
                 getIntervalColor(realtimeCountdown) || "text-red-500"
               )}>
                 {realtimeCountdown}
@@ -346,18 +346,18 @@ export const KeyEventsSection = ({ refreshTrigger, onBookmarkDeleted }: KeyEvent
 
               {/* Event Title */}
               <div className="col-span-5 min-w-0">
-                <div className="text-productivity-text-primary text-xs font-medium break-words leading-tight">
+                <div className="text-productivity-text-primary text-sm font-medium break-words leading-tight">
                   {bookmark.event_title}
                 </div>
               </div>
 
               {/* Duration */}
-              <div className="col-span-1 text-xs text-productivity-text-tertiary text-center">
+              <div className="col-span-1 text-sm text-productivity-text-tertiary text-center">
                 {bookmark.duration}min
               </div>
 
               {/* Attendees Count */}
-              <div className="col-span-1 text-xs text-productivity-text-tertiary text-center">
+              <div className="col-span-1 text-sm text-productivity-text-tertiary text-center">
                 {bookmark.attendees && bookmark.attendees.length > 0 ? (
                   <span title={`${bookmark.attendees.length} attendee${bookmark.attendees.length !== 1 ? 's' : ''}`}>
                     {bookmark.attendees.length}

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
+import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
 import { TodoItem, CreateTodoRequest } from '../types/todo';
 import { todoApiService } from '../services/todoApi';
 import { cn } from '../lib/utils';
-import { X, RefreshCw } from 'lucide-react';
+import { X, RefreshCw, GripVertical } from 'lucide-react';
 import { useTimezone } from '../contexts/TimezoneContext';
 import { cache, CACHE_KEYS, CACHE_TTL } from '../utils/cacheUtils';
 
@@ -12,6 +13,36 @@ const formatDate = (dateString: string, convertTime: (date: Date) => Date): stri
   const date = new Date(dateString);
   const convertedDate = convertTime(date);
   return convertedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
+
+// Order persistence utilities
+const ORDER_STORAGE_KEY = 'todo-order';
+
+const saveTodoOrder = (todos: TodoItem[]) => {
+  const orderMap = todos.reduce((acc, todo, index) => {
+    if (todo.title) {
+      acc[todo.title] = index;
+    }
+    return acc;
+  }, {} as Record<string, number>);
+  localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(orderMap));
+};
+
+const loadTodoOrder = (todos: TodoItem[]): TodoItem[] => {
+  try {
+    const savedOrder = localStorage.getItem(ORDER_STORAGE_KEY);
+    if (!savedOrder) return todos;
+
+    const orderMap = JSON.parse(savedOrder);
+    return todos.sort((a, b) => {
+      const orderA = orderMap[a.title] ?? 999;
+      const orderB = orderMap[b.title] ?? 999;
+      return orderA - orderB;
+    });
+  } catch (error) {
+    console.error('Error loading todo order:', error);
+    return todos;
+  }
 };
 
 export const TodoSection = () => {
@@ -35,7 +66,8 @@ export const TodoSection = () => {
         const cachedTodos = cache.get<TodoItem[]>(CACHE_KEYS.TODOS());
         if (cachedTodos) {
           console.log(`📦 Using cached todos (${cachedTodos.length} items)`);
-          setTodos(cachedTodos);
+          const orderedTodos = loadTodoOrder(cachedTodos);
+          setTodos(orderedTodos);
           return;
         }
       }
@@ -43,10 +75,13 @@ export const TodoSection = () => {
       // Get ALL todos regardless of priority/urgency
       const allTodos = await todoApiService.getTodos({});
       
-      // Cache the todos
-      cache.set(CACHE_KEYS.TODOS(), allTodos, { ttl: CACHE_TTL.TODOS });
+      // Apply saved order
+      const orderedTodos = loadTodoOrder(allTodos);
       
-      setTodos(allTodos);
+      // Cache the todos
+      cache.set(CACHE_KEYS.TODOS(), orderedTodos, { ttl: CACHE_TTL.TODOS });
+      
+      setTodos(orderedTodos);
     } catch (error) {
       console.error('Error fetching todos:', error);
     }
@@ -89,12 +124,26 @@ export const TodoSection = () => {
     }
   };
 
+  const handleDragEnd = (result: DropResult) => {
+    if (!result.destination) return;
+
+    const newTodos = Array.from(todos);
+    const [reorderedItem] = newTodos.splice(result.source.index, 1);
+    newTodos.splice(result.destination.index, 0, reorderedItem);
+
+    setTodos(newTodos);
+    saveTodoOrder(newTodos);
+  };
+
   const handleDelete = async (todoTitle: string) => {
     try {
       await todoApiService.deleteTodoByTitle(todoTitle);
-      // Clear cache and refresh the list after successful deletion
+      // Update local state immediately and save order
+      const updatedTodos = todos.filter(todo => todo.title !== todoTitle);
+      setTodos(updatedTodos);
+      saveTodoOrder(updatedTodos);
+      // Clear cache
       cache.remove(CACHE_KEYS.TODOS());
-      await fetchTodos(true);
     } catch (error) {
       console.error('Error deleting todo:', error);
     }
@@ -164,116 +213,118 @@ export const TodoSection = () => {
       </form>
 
       {/* TODO Table */}
-      <div className="space-y-2">
-        {todos.length === 0 ? (
-          <p className="text-sm text-productivity-text-tertiary">
-            You're all done! Here's a plant 🪴
-          </p>
-        ) : (
-          todos.map((todo, index) => {
-            // Create urgency-based styling
-            const getUrgencyStyles = (todo: TodoItem) => {
-              const isHighPriority = todo.priority === 'high';
-              const isHighUrgency = todo.urgency === 'high';
-              const isCritical = isHighPriority && isHighUrgency;
-              
-              if (isCritical) {
-                return {
-                  container: "bg-gradient-to-r from-red-50 via-red-25 to-orange-50 border-red-200 hover:from-red-100 hover:via-red-50 hover:to-orange-100 shadow-sm hover:shadow-md border-l-4 border-l-red-400",
-                  pulse: "",
-                  glow: "shadow-red-100 hover:shadow-red-200"
-                };
-              } else if (isHighPriority || isHighUrgency) {
-                return {
-                  container: "bg-gradient-to-r from-orange-50 via-yellow-25 to-orange-50 border-orange-200 hover:from-orange-100 hover:via-yellow-50 hover:to-orange-100 shadow-sm hover:shadow-md border-l-4 border-l-orange-400",
-                  pulse: "",
-                  glow: "shadow-orange-100 hover:shadow-orange-200"
-                };
-              } else {
-                return {
-                  container: "bg-gradient-to-r from-blue-25 via-slate-25 to-blue-25 border-slate-200 hover:from-blue-50 hover:via-slate-50 hover:to-blue-50 border-l-4 border-l-blue-300",
-                  pulse: "",
-                  glow: "shadow-slate-100 hover:shadow-slate-200"
-                };
-              }
-            };
-            
-            const urgencyStyles = getUrgencyStyles(todo);
-            
-            return (
+      <DragDropContext onDragEnd={handleDragEnd}>
+        <Droppable droppableId="todos">
+          {(provided, snapshot) => (
             <div
-              key={todo.id || index}
+              {...provided.droppableProps}
+              ref={provided.innerRef}
               className={cn(
-                "group flex items-center gap-2 p-3 rounded-lg border transition-all duration-300 transform hover:scale-[1.02] hover:-translate-y-0.5",
-                urgencyStyles.container,
-                urgencyStyles.pulse,
-                urgencyStyles.glow
+                "space-y-2 transition-colors duration-200",
+                snapshot.isDraggingOver && "bg-blue-50/50 rounded-lg"
               )}
-              style={{
-                backgroundImage: todo.priority === 'high' && todo.urgency === 'high' 
-                  ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.03) 0%, rgba(251, 146, 60, 0.03) 100%)'
-                  : undefined
-              }}
             >
-              {/* Date */}
-              {todo.created_at && (
-                <div className="flex-shrink-0 text-xs text-productivity-text-tertiary">
-                  {formatDate(todo.created_at, convertTime)}
-                </div>
+              {todos.length === 0 ? (
+                <p className="text-sm text-productivity-text-tertiary">
+                  You're all done! Here's a plant 🪴
+                </p>
+              ) : (
+                todos.map((todo, index) => (
+                  <Draggable key={todo.title} draggableId={todo.title} index={index}>
+                    {(provided, snapshot) => (
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.draggableProps}
+                        className={cn(
+                          "group flex items-center gap-2 p-3 rounded-lg border transition-all duration-300 transform hover:scale-[1.02] hover:-translate-y-0.5",
+                          snapshot.isDragging && "shadow-lg rotate-2 scale-105 z-50",
+                          // Apply urgency-based styling
+                          todo.priority === 'high' && todo.urgency === 'high'
+                            ? "bg-gradient-to-r from-red-50 via-red-25 to-orange-50 border-red-200 hover:from-red-100 hover:via-red-50 hover:to-orange-100 shadow-sm hover:shadow-md border-l-4 border-l-red-400"
+                            : (todo.priority === 'high' || todo.urgency === 'high')
+                            ? "bg-gradient-to-r from-orange-50 via-yellow-25 to-orange-50 border-orange-200 hover:from-orange-100 hover:via-yellow-50 hover:to-orange-100 shadow-sm hover:shadow-md border-l-4 border-l-orange-400"
+                            : "bg-gradient-to-r from-blue-25 via-slate-25 to-blue-25 border-slate-200 hover:from-blue-50 hover:via-slate-50 hover:to-blue-50 border-l-4 border-l-blue-300"
+                        )}
+                        style={{
+                          ...provided.draggableProps.style,
+                          backgroundImage: todo.priority === 'high' && todo.urgency === 'high' 
+                            ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.03) 0%, rgba(251, 146, 60, 0.03) 100%)'
+                            : undefined
+                        }}
+                      >
+                        {/* Drag Handle */}
+                        <div
+                          {...provided.dragHandleProps}
+                          className="flex-shrink-0 p-1 text-productivity-text-tertiary hover:text-productivity-text-secondary cursor-grab active:cursor-grabbing transition-colors"
+                          title="Drag to reorder"
+                        >
+                          <GripVertical className="w-4 h-4" />
+                        </div>
+
+                        {/* Date */}
+                        {todo.created_at && (
+                          <div className="flex-shrink-0 text-sm text-productivity-text-tertiary">
+                            {formatDate(todo.created_at, convertTime)}
+                          </div>
+                        )}
+
+                        {/* Title */}
+                        <div className="flex-1 min-w-0">
+                          <div className={cn(
+                            "text-sm break-words leading-tight font-medium transition-colors",
+                            todo.priority === 'high' && todo.urgency === 'high' 
+                              ? "text-red-700 group-hover:text-red-800" 
+                              : (todo.priority === 'high' || todo.urgency === 'high')
+                              ? "text-orange-700 group-hover:text-orange-800"
+                              : "text-productivity-text-primary group-hover:text-slate-700"
+                          )}>
+                            {todo.title}
+                          </div>
+                        </div>
+
+                        {/* Priority Chip */}
+                        <span className={cn(
+                          "px-2 py-1 text-xs font-medium rounded-full transition-all duration-200 transform group-hover:scale-105",
+                          todo.priority === 'high' 
+                            ? "bg-red-500 text-white shadow-sm group-hover:bg-red-600 group-hover:shadow-md" 
+                            : "bg-slate-200 text-slate-600 group-hover:bg-slate-300"
+                        )}>
+                          {todo.priority === 'high' ? '●' : '○'}
+                        </span>
+
+                        {/* Urgency Chip */}
+                        <span className={cn(
+                          "px-2 py-1 text-xs font-medium rounded-full transition-all duration-200 transform group-hover:scale-105",
+                          todo.urgency === 'high' 
+                            ? "bg-orange-500 text-white shadow-sm group-hover:bg-orange-600 group-hover:shadow-md" 
+                            : "bg-slate-200 text-slate-600 group-hover:bg-slate-300"
+                        )}>
+                          {todo.urgency === 'high' ? '▲' : '▽'}
+                        </span>
+
+                        {/* Delete Button */}
+                        <button
+                          onClick={() => handleDelete(todo.title)}
+                          className={cn(
+                            "p-2 rounded-full transition-all duration-200 transform hover:scale-110 group-hover:bg-white/50",
+                            todo.priority === 'high' && todo.urgency === 'high'
+                              ? "text-red-400 hover:text-red-600 hover:bg-red-50"
+                              : "text-productivity-text-tertiary hover:text-red-500 hover:bg-red-50"
+                          )}
+                          title={`Complete "${todo.title}" - Get it done! 💪`}
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                  </Draggable>
+                ))
               )}
-
-              {/* Title */}
-              <div className="flex-1 min-w-0">
-                <div className={cn(
-                  "text-xs break-words leading-tight font-medium transition-colors",
-                  todo.priority === 'high' && todo.urgency === 'high' 
-                    ? "text-red-700 group-hover:text-red-800" 
-                    : (todo.priority === 'high' || todo.urgency === 'high')
-                    ? "text-orange-700 group-hover:text-orange-800"
-                    : "text-productivity-text-primary group-hover:text-slate-700"
-                )}>
-                  {todo.title}
-                </div>
-              </div>
-
-              {/* Priority Chip */}
-              <span className={cn(
-                "px-2 py-1 text-xs font-medium rounded-full transition-all duration-200 transform group-hover:scale-105",
-                todo.priority === 'high' 
-                  ? "bg-red-500 text-white shadow-sm group-hover:bg-red-600 group-hover:shadow-md" 
-                  : "bg-slate-200 text-slate-600 group-hover:bg-slate-300"
-              )}>
-                {todo.priority === 'high' ? '●' : '○'}
-              </span>
-
-              {/* Urgency Chip */}
-              <span className={cn(
-                "px-2 py-1 text-xs font-medium rounded-full transition-all duration-200 transform group-hover:scale-105",
-                todo.urgency === 'high' 
-                  ? "bg-orange-500 text-white shadow-sm group-hover:bg-orange-600 group-hover:shadow-md" 
-                  : "bg-slate-200 text-slate-600 group-hover:bg-slate-300"
-              )}>
-                {todo.urgency === 'high' ? '▲' : '▽'}
-              </span>
-
-              {/* Delete Button */}
-              <button
-                onClick={() => handleDelete(todo.title)}
-                className={cn(
-                  "p-2 rounded-full transition-all duration-200 transform hover:scale-110 group-hover:bg-white/50",
-                  todo.priority === 'high' && todo.urgency === 'high'
-                    ? "text-red-400 hover:text-red-600 hover:bg-red-50"
-                    : "text-productivity-text-tertiary hover:text-red-500 hover:bg-red-50"
-                )}
-                title={`Complete "${todo.title}" - Get it done! 💪`}
-              >
-                <X className="w-4 h-4" />
-              </button>
+              {provided.placeholder}
             </div>
-            );
-          })
-        )}
-      </div>
+          )}
+        </Droppable>
+      </DragDropContext>
     </div>
   );
 };

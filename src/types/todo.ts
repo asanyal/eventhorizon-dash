@@ -4,6 +4,7 @@ export interface TodoItem {
   urgency: 'high' | 'low';
   priority: 'high' | 'low';
   created_at?: string;
+  order?: number;
 }
 
 export interface CreateTodoRequest {
