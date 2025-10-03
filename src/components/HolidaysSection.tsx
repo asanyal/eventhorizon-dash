@@ -217,7 +217,7 @@ export const HolidaysSection = ({ calendarEvents = [], bookmarkedEvents = [] }: 
         <div className="flex items-center gap-3">
           <h3 className="text-lg font-semibold text-productivity-text-primary flex items-center gap-2">
             <PartyPopper className="w-5 h-5 text-orange-500" />
-            Vacation Planner
+            Vacation
           </h3>
         </div>
         <button

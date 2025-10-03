@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { CalendarEventsList } from '../components/CalendarEventsList';
-import { TimeFilterDropdown } from '../components/TimeFilterDropdown';
+import { TimeFilterChips } from '../components/TimeFilterChips';
 import { TodoSection } from '../components/TodoSection';
 import { HorizonSection } from '../components/HorizonSection';
 import { KeyEventsSection } from '../components/KeyEventsSection';
@@ -272,7 +272,7 @@ const IndexContent = () => {
                   }`}
                 >
                   <PartyPopper className="w-4 h-4" />
-                  Vacation Planner
+                  Vacation
                 </button>
               </div>
             </div>
@@ -317,7 +317,7 @@ const IndexContent = () => {
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-2">
                   {/* Primary filters row */}
                   <div className="flex items-center gap-2 flex-1">
-                    <TimeFilterDropdown 
+                    <TimeFilterChips 
                       value={timeFilter} 
                       onChange={(value) => {
                         setTimeFilter(value);

@@ -1,4 +1,4 @@
-export type HorizonType = 'Event' | 'Meeting' | 'none' | null;
+export type HorizonType = 'Event' | 'Meeting' | 'OnMyMind' | null;
 
 export interface HorizonItem {
   id?: string;

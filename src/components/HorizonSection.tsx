@@ -240,7 +240,7 @@ export const HorizonSection = () => {
   const filteredHorizons = selectedFilters.size === 0 ? horizons : horizons.filter(horizon => {
     if (selectedFilters.has('Event') && horizon.type === 'Event') return true;
     if (selectedFilters.has('Meeting') && horizon.type === 'Meeting') return true;
-    if (selectedFilters.has('Others') && horizon.type !== 'Event' && horizon.type !== 'Meeting') return true;
+    if (selectedFilters.has('Others') && (horizon.type === 'OnMyMind' || horizon.type === null || (horizon.type !== 'Event' && horizon.type !== 'Meeting'))) return true;
     return false;
   });
 
@@ -496,7 +496,7 @@ export const HorizonSection = () => {
                   <label className="block text-sm font-medium text-productivity-text-primary mb-2">
                     Type
                   </label>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     <button
                       type="button"
                       onClick={() => setSelectedType(selectedType === 'Event' ? null : 'Event')}
@@ -522,6 +522,19 @@ export const HorizonSection = () => {
                       disabled={loading}
                     >
                       Meeting
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedType(selectedType === 'OnMyMind' ? null : 'OnMyMind')}
+                      className={cn(
+                        "px-3 py-1 text-sm font-medium rounded-full transition-colors",
+                        selectedType === 'OnMyMind'
+                          ? "bg-emerald-300 text-white"
+                          : "bg-gray-200 text-gray-600 hover:bg-gray-300"
+                      )}
+                      disabled={loading}
+                    >
+                      On my mind
                     </button>
                   </div>
                 </div>
@@ -584,7 +597,7 @@ export const HorizonSection = () => {
                 className={cn(
                   "px-3 py-1 text-xs font-medium rounded-full transition-colors",
                   selectedFilters.has('Others')
-                    ? "bg-gray-500 text-white"
+                    ? "bg-emerald-400 text-white"
                     : "bg-gray-200 text-gray-600 hover:bg-gray-300"
                 )}
               >
@@ -620,6 +633,8 @@ export const HorizonSection = () => {
                         ? "bg-orange-50 hover:bg-orange-100"
                         : horizon.type === 'Meeting'
                         ? "bg-purple-50 hover:bg-purple-100"
+                        : horizon.type === 'OnMyMind'
+                        ? "bg-emerald-50 hover:bg-emerald-100"
                         : "bg-background"
                     )}
                   >

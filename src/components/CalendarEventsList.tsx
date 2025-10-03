@@ -2,7 +2,7 @@ import { CalendarEvent, TimeFilter } from '../types/calendar';
 import { formatDateTime, getTimeUntilEvent, formatDuration, getUrgencyLevel, getUrgencyColor, getIntervalColor } from '../utils/dateUtils';
 import { cn } from '../lib/utils';
 import { useState, useEffect } from 'react';
-import { Bookmark, FileText } from 'lucide-react';
+import { Bookmark, FileText, Search, X } from 'lucide-react';
 import { bookmarkApiService } from '../services/bookmarkApi';
 import { CreateBookmarkRequest } from '../types/bookmark';
 import { useTimezone } from '../contexts/TimezoneContext';
@@ -175,11 +175,177 @@ const getFreeBlocks = (events: CalendarEvent[], timeFilter: TimeFilter, selected
     .slice(0, 4); // Limit to 4 blocks
 };
 
+// Helper function to calculate free time between events, including start/end of day
+const calculateFreeTime = (
+  currentEvent: CalendarEvent, 
+  nextEvent: CalendarEvent | null, 
+  isFirstEvent: boolean = false, 
+  isLastEvent: boolean = false,
+  allEvents: CalendarEvent[] = []
+): { duration: string; show: boolean; type: 'between' | 'start' | 'end' } => {
+  
+  // Helper function to check if two dates are on the same day
+  const isSameDay = (date1: Date, date2: Date) => {
+    return date1.getFullYear() === date2.getFullYear() &&
+           date1.getMonth() === date2.getMonth() &&
+           date1.getDate() === date2.getDate();
+  };
+  
+  // Helper function to get 7:30 PM cutoff for a given date
+  const getDayEndCutoff = (date: Date) => {
+    const cutoff = new Date(date);
+    cutoff.setHours(19, 30, 0, 0); // 7:30 PM
+    return cutoff;
+  };
+  
+  // Handle start of day (before first event)
+  if (isFirstEvent && !currentEvent.all_day) {
+    const eventStart = currentEvent.startTime;
+    const dayStart = new Date(eventStart);
+    dayStart.setHours(6, 30, 0, 0); // 6:30 AM
+    
+    // Only consider if event starts on the same day and before 7:30 PM
+    const dayEnd = getDayEndCutoff(eventStart);
+    if (isSameDay(eventStart, dayStart) && eventStart.getTime() > dayStart.getTime() && eventStart.getTime() <= dayEnd.getTime()) {
+      const gapMinutes = Math.floor((eventStart.getTime() - dayStart.getTime()) / (1000 * 60));
+      
+      if (gapMinutes >= 75) {
+        const hours = Math.floor(gapMinutes / 60);
+        const minutes = gapMinutes % 60;
+        
+        let duration = '';
+        if (hours > 0) {
+          duration += `${hours}h`;
+          if (minutes > 0) {
+            duration += ` ${minutes}m`;
+          }
+        } else {
+          duration = `${minutes}m`;
+        }
+        
+        return { duration: `${duration} free`, show: true, type: 'start' };
+      }
+    }
+  }
+  
+  // Handle end of day (after last event)
+  if (isLastEvent && !currentEvent.all_day) {
+    const eventEnd = new Date(currentEvent.startTime.getTime() + currentEvent.duration * 60 * 1000);
+    const dayEnd = getDayEndCutoff(currentEvent.startTime);
+    
+    // Only consider if event starts and ends on the same day, and ends before 7:30 PM
+    if (isSameDay(currentEvent.startTime, eventEnd) && eventEnd.getTime() < dayEnd.getTime()) {
+      const gapMinutes = Math.floor((dayEnd.getTime() - eventEnd.getTime()) / (1000 * 60));
+      
+      if (gapMinutes >= 75) {
+        const hours = Math.floor(gapMinutes / 60);
+        const minutes = gapMinutes % 60;
+        
+        let duration = '';
+        if (hours > 0) {
+          duration += `${hours}h`;
+          if (minutes > 0) {
+            duration += ` ${minutes}m`;
+          }
+        } else {
+          duration = `${minutes}m`;
+        }
+        
+        return { duration: `${duration} free`, show: true, type: 'end' };
+      }
+    }
+  }
+  
+  // Handle between events
+  if (!nextEvent || currentEvent.all_day || nextEvent.all_day) {
+    return { duration: '', show: false, type: 'between' };
+  }
+  
+  const currentEndTime = new Date(currentEvent.startTime.getTime() + currentEvent.duration * 60 * 1000);
+  const nextStartTime = nextEvent.startTime;
+  const currentDayEnd = getDayEndCutoff(currentEvent.startTime);
+  
+  // Skip if current event ends after 7:30 PM
+  if (currentEndTime.getTime() >= currentDayEnd.getTime()) {
+    return { duration: '', show: false, type: 'between' };
+  }
+  
+  // Skip if events are on different days
+  if (!isSameDay(currentEvent.startTime, nextEvent.startTime)) {
+    return { duration: '', show: false, type: 'between' };
+  }
+  
+  // Calculate gap, but cap it at 7:30 PM if next event starts after 7:30 PM
+  const effectiveNextStart = nextStartTime.getTime() > currentDayEnd.getTime() ? currentDayEnd : nextStartTime;
+  const gapMinutes = Math.floor((effectiveNextStart.getTime() - currentEndTime.getTime()) / (1000 * 60));
+  
+  // Only show if gap is 75+ minutes
+  if (gapMinutes < 75) {
+    return { duration: '', show: false, type: 'between' };
+  }
+  
+  const hours = Math.floor(gapMinutes / 60);
+  const minutes = gapMinutes % 60;
+  
+  let duration = '';
+  if (hours > 0) {
+    duration += `${hours}h`;
+    if (minutes > 0) {
+      duration += ` ${minutes}m`;
+    }
+  } else {
+    duration = `${minutes}m`;
+  }
+  
+  return { duration: `${duration} free`, show: true, type: 'between' };
+};
+
+// Helper function to filter events based on search query
+const filterEventsBySearch = (events: CalendarEvent[], searchQuery: string, convertTime: (date: Date) => Date) => {
+  if (!searchQuery.trim()) return events;
+  
+  const query = searchQuery.toLowerCase().trim();
+  
+  return events.filter(event => {
+    const convertedEvent = {
+      ...event,
+      startTime: convertTime(event.startTime)
+    };
+    
+    // Search in event title
+    if (event.title.toLowerCase().includes(query)) return true;
+    
+    // Search in attendees
+    if (event.attendees.some(attendee => attendee.toLowerCase().includes(query))) return true;
+    
+    // Search in formatted date (e.g., "Oct 3", "Thu, Oct 3")
+    const formattedDate = formatMinimalDate(convertedEvent.startTime).toLowerCase();
+    if (formattedDate.includes(query)) return true;
+    
+    // Search in formatted time
+    const formattedTime = formatDateTime(convertedEvent.startTime).toLowerCase();
+    if (formattedTime.includes(query)) return true;
+    
+    // Search in duration
+    const duration = formatDuration(event.duration).toLowerCase();
+    if (duration.includes(query)) return true;
+    
+    // Search in notes (if available)
+    if (event.notes && event.notes.toLowerCase().includes(query)) return true;
+    
+    // Search in organizer email
+    if (event.organizerEmail && event.organizerEmail.toLowerCase().includes(query)) return true;
+    
+    return false;
+  });
+};
+
 export const CalendarEventsList = ({ events, timeFilter, loading = false, onBookmarkCreated, selectedDate, bookmarkedEventTitles = [] }: CalendarEventsListProps) => {
   const [clickedChip, setClickedChip] = useState<string | null>(null);
   const [showPastEvents, setShowPastEvents] = useState(false);
   const [pinnedTooltip, setPinnedTooltip] = useState<string | null>(null);
   const [meetingTypeFilter, setMeetingTypeFilter] = useState<'all' | 'internal' | 'external'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const { convertTime } = useTimezone();
   const { isSimpleView } = useSimpleView();
   const isMobile = useIsMobile();
@@ -234,13 +400,16 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
     }
   };
   
+  // Apply search filter first, then calculate summary data
+  const searchFilteredEvents = filterEventsBySearch(events, searchQuery, convertTime);
+  
   // Calculate summary data with timezone conversion
-  const eventsWithConvertedTimes = events.map(event => ({
+  const eventsWithConvertedTimes = searchFilteredEvents.map(event => ({
     ...event,
     startTime: convertTime(event.startTime)
   }));
   
-  const meetingTypes = getMeetingTypes(events);
+  const meetingTypes = getMeetingTypes(searchFilteredEvents);
   const timeDistribution = getTimeDistribution(eventsWithConvertedTimes);
   const freeBlocks = getFreeBlocks(eventsWithConvertedTimes, timeFilter, selectedDate);
   
@@ -248,8 +417,30 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
   if (isSimpleView) {
     return (
       <div className="space-y-4">
+        {/* Search Bar */}
+        {events.length > 0 && !loading && (
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Search events, attendees, dates..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Simple View - Free Times Only */}
-        {events.length > 0 && !loading && freeBlocks.length > 0 && (
+        {searchFilteredEvents.length > 0 && !loading && freeBlocks.length > 0 && (
           <div className="bg-green-50 rounded-lg p-4 border border-green-200">
             <h3 className="text-lg font-semibold text-green-800 mb-3">Free Time</h3>
             <div className="space-y-2">
@@ -270,13 +461,13 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
             <div className="text-center py-8 text-lg text-gray-500">
               Loading events...
             </div>
-          ) : events.length === 0 ? (
+          ) : searchFilteredEvents.length === 0 ? (
             <div className="text-center py-8 text-lg text-gray-500">
-              No events found
+              {searchQuery ? `No events found matching "${searchQuery}"` : "No events found"}
             </div>
           ) : (
             (() => {
-              const filteredEvents = events.filter(event => {
+              const filteredEvents = searchFilteredEvents.filter(event => {
                 const isPastEvent = event.startTime.getTime() < new Date().getTime();
                 return showPastEvents || !isPastEvent;
               });
@@ -290,18 +481,35 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
                 const isPastEvent = event.startTime.getTime() < new Date().getTime();
                 const isBookmarked = bookmarkedEventTitles.includes(event.title);
                 
+                // Calculate free time to next event
+                const nextEventInList = index < filteredEvents.length - 1 ? filteredEvents[index + 1] : null;
+                const isFirstEvent = index === 0;
+                const isLastEvent = index === filteredEvents.length - 1;
+                const freeTime = calculateFreeTime(event, nextEventInList, isFirstEvent, isLastEvent, filteredEvents);
+                
                 return (
-                  <div
-                    key={event.id}
-                    className={cn(
-                      "rounded-lg p-4 border-2 transition-all duration-200",
-                      isBookmarked 
-                        ? "bg-red-50 border-red-200 hover:border-red-300 hover:shadow-md"
-                        : isPastEvent 
-                        ? "border-gray-200 bg-gray-50" 
-                        : "bg-white border-blue-200 hover:border-blue-300 hover:shadow-md"
+                  <div key={event.id}>
+                    {/* Free Time Ribbon - Start of Day (Simple View) */}
+                    {freeTime.show && freeTime.type === 'start' && (
+                      <div className="mb-3">
+                        <div className="bg-green-100 border-l-4 border-green-400 px-3 py-1 rounded-r-md">
+                          <div className="text-xs font-medium text-green-800">
+                            {freeTime.duration}
+                          </div>
+                        </div>
+                      </div>
                     )}
-                  >
+                    
+                    <div
+                      className={cn(
+                        "rounded-lg p-4 border-2 transition-all duration-200",
+                        isBookmarked 
+                          ? "bg-red-50 border-red-200 hover:border-red-300 hover:shadow-md"
+                          : isPastEvent 
+                          ? "border-gray-200 bg-gray-50" 
+                          : "bg-white border-blue-200 hover:border-blue-300 hover:shadow-md"
+                      )}
+                    >
                     <div className="flex items-center gap-3">
                       {/* Interval Cell */}
                       {!isPastEvent && !event.all_day && (
@@ -367,6 +575,18 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
                         <Bookmark className={cn("w-5 h-5", isBookmarked && "fill-current")} />
                       </button>
                     </div>
+                    
+                    {/* Free Time Ribbon - Between/End of Day (Simple View) */}
+                    {freeTime.show && (freeTime.type === 'between' || freeTime.type === 'end') && (
+                      <div className="mt-3">
+                        <div className="bg-green-100 border-l-4 border-green-400 px-3 py-1 rounded-r-md">
+                          <div className="text-xs font-medium text-green-800">
+                            {freeTime.duration}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    </div>
                   </div>
                 );
               });
@@ -379,8 +599,30 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
 
   return (
     <div className="space-y-4">
-      {/* Summary Section */}
+      {/* Search Bar */}
       {events.length > 0 && !loading && (
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <input
+            type="text"
+            placeholder="Search events, attendees, dates..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Summary Section */}
+      {searchFilteredEvents.length > 0 && !loading && (
         <div className="bg-background rounded-lg p-3 md:p-4 border border-border">
           <div className={cn(
             "gap-4 md:gap-6 text-xs",
@@ -391,7 +633,12 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
             {/* Total Events */}
             <div>
               <div className="text-productivity-text-secondary font-medium mb-2">Events</div>
-              <div className="text-2xl font-bold text-productivity-text-primary">{events.length}</div>
+              <div className="text-2xl font-bold text-productivity-text-primary">
+                {searchFilteredEvents.length}
+                {searchQuery && events.length !== searchFilteredEvents.length && (
+                  <span className="text-sm text-gray-500 ml-1">of {events.length}</span>
+                )}
+              </div>
             </div>
             
             {/* Meeting Types */}
@@ -463,7 +710,7 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
       )}
       
       {/* Show/Hide Past Events Toggle and Meeting Type Filter */}
-      {events.length > 0 && !loading && (
+      {searchFilteredEvents.length > 0 && !loading && (
         <div className={cn(
           "mb-4",
           isMobile 
@@ -554,13 +801,13 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
               Loading events...
             </div>
           </div>
-        ) : events.length === 0 ? (
+        ) : searchFilteredEvents.length === 0 ? (
           <div className="px-4 py-8 text-center text-productivity-text-tertiary">
-            No events found for the selected time period.
+            {searchQuery ? `No events found matching "${searchQuery}"` : "No events found for the selected time period."}
           </div>
         ) : (
           (() => {
-            const filteredEvents = events.filter(event => {
+            const filteredEvents = searchFilteredEvents.filter(event => {
               const isPastEvent = event.startTime.getTime() < new Date().getTime();
               const pastEventFilter = showPastEvents || !isPastEvent;
               
@@ -588,7 +835,7 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
               const isTooltipPinned = pinnedTooltip === event.id;
               
               // Find the next immediate event (first future event in the sorted list)
-              const futureEvents = events.filter(e => e.startTime.getTime() > new Date().getTime());
+              const futureEvents = searchFilteredEvents.filter(e => e.startTime.getTime() > new Date().getTime());
               const nextEvent = futureEvents.length > 0 ? futureEvents[0] : null;
               const isNextEvent = nextEvent && event.id === nextEvent.id;
               
@@ -600,10 +847,16 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
               const currentDate = formatMinimalDate(convertedEvent.startTime);
               const nextEventDate = index < filteredEvents.length - 1 ? formatMinimalDate(convertTime(filteredEvents[index + 1].startTime)) : null;
               const isLastOfDay = nextEventDate && currentDate !== nextEventDate;
+              
+              // Calculate free time to next event
+              const nextEventInList = index < filteredEvents.length - 1 ? filteredEvents[index + 1] : null;
+              const isFirstEvent = index === 0;
+              const isLastEvent = index === filteredEvents.length - 1;
+              const freeTime = calculateFreeTime(event, nextEventInList, isFirstEvent, isLastEvent, filteredEvents);
             
             // Debug logging
             if (index === 0) {
-              console.log('Events dates:', events.map(e => formatMinimalDate(e.startTime)));
+              console.log('Events dates:', searchFilteredEvents.map(e => formatMinimalDate(e.startTime)));
             }
             if (isLastOfDay) {
               console.log(`Day separator after: ${currentDate} -> ${nextEventDate}`);
@@ -611,9 +864,30 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
             
             return (
               <div key={event.id}>
+                {/* Free Time Ribbon - Start of Day (Desktop View) */}
+                {freeTime.show && freeTime.type === 'start' && !isMobile && (
+                  <div className="px-3 py-1 bg-green-100 border-l-4 border-green-400">
+                    <div className="text-xs font-medium text-green-800">
+                      {freeTime.duration}
+                    </div>
+                  </div>
+                )}
+                
                 {isMobile ? (
-                  // Mobile Card Layout
-                  <div
+                  <div>
+                    {/* Free Time Ribbon - Start of Day (Mobile View) */}
+                    {freeTime.show && freeTime.type === 'start' && (
+                      <div className="mb-3">
+                        <div className="bg-green-100 border-l-4 border-green-400 px-3 py-1 rounded-r-md">
+                          <div className="text-xs font-medium text-green-800">
+                            {freeTime.duration}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Mobile Card Layout */}
+                    <div
                     className={cn(
                       "p-3 mb-3 rounded-lg border transition-all duration-200",
                       isBookmarked 
@@ -759,6 +1033,18 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
                         </div>
                       )}
                     </div>
+                    
+                    {/* Free Time Ribbon - Between/End of Day (Mobile View) */}
+                    {freeTime.show && (freeTime.type === 'between' || freeTime.type === 'end') && (
+                      <div className="mt-3">
+                        <div className="bg-green-100 border-l-4 border-green-400 px-3 py-1 rounded-r-md">
+                          <div className="text-xs font-medium text-green-800">
+                            {freeTime.duration}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   </div>
                 ) : (
                   // Desktop Table Layout
@@ -949,6 +1235,18 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
                   </div>
                   </div>
                 )}
+                
+                {/* Free Time Ribbon - Between/End of Day (Desktop View) */}
+                {freeTime.show && (freeTime.type === 'between' || freeTime.type === 'end') && (
+                  <div className="mt-1 mb-1">
+                    <div className="bg-green-100 border-l-4 border-green-400 px-3 py-1 rounded-r-md">
+                      <div className="text-xs font-medium text-green-800">
+                        {freeTime.duration}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 {isLastOfDay && !isMobile && (
                   <div className="h-px bg-black w-full"></div>
                 )}
