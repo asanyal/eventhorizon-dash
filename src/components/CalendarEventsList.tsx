@@ -22,8 +22,17 @@ style.textContent = `
       filter: brightness(1.1) saturate(1.3) hue-rotate(-10deg);
     }
   }
+
+  @keyframes inner-glow {
+    0%, 100% {
+      box-shadow: inset 0 0 6px rgba(239,68,68,0.3);
+    }
+    50% {
+      box-shadow: inset 0 0 12px rgba(239,68,68,0.6);
+    }
+  }
   .ongoing-event {
-    animation: subtle-blink 3s ease-in-out infinite;
+    animation: inner-glow 10s ease-in-out infinite;
   }
 `;
 document.head.appendChild(style);
@@ -183,6 +192,11 @@ const calculateFreeTime = (
   
   // Check if event spans multiple days - ignore these
   if (!isSameDay(currentStartConverted, currentEndConverted)) {
+    return { duration: '', show: false, type: 'between' };
+  }
+  
+  // IMPORTANT: If the current event hasn't ended yet, don't show any free time after it
+  if (now.getTime() < currentEndConverted.getTime()) {
     return { duration: '', show: false, type: 'between' };
   }
   

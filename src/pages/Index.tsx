@@ -42,6 +42,53 @@ const getGreeting = (time: Date) => {
   }
 };
 
+// Helper function to get ongoing meeting info
+const getOngoingMeetingInfo = (todayEvents: CalendarEvent[]): { title: string; timeAgo: string } | null => {
+  const now = new Date();
+  
+  // Helper function to truncate title
+  const truncateTitle = (title: string): string => {
+    return title.length > 100 ? title.substring(0, 100) + "..." : title;
+  };
+  
+  // Helper function to format time since start
+  const getTimeSinceStart = (startTime: Date): string => {
+    const diffMs = now.getTime() - startTime.getTime();
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    
+    if (diffMins < 5) {
+      return "just started";
+    } else if (diffMins < 60) {
+      return `started ${diffMins} mins ago`;
+    } else {
+      const hours = Math.floor(diffMins / 60);
+      const mins = diffMins % 60;
+      if (mins === 0) {
+        return hours === 1 ? "1 hour ago" : `${hours} hours ago`;
+      } else {
+        return hours === 1 ? `1 hour ${mins} mins ago` : `${hours} hours ${mins} mins ago`;
+      }
+    }
+  };
+  
+  // Find ongoing meeting (started but not ended, excluding all-day events)
+  const ongoingEvent = todayEvents.find(event => {
+    const startTime = event.startTime instanceof Date ? event.startTime : new Date(event.startTime);
+    const endTime = new Date(startTime.getTime() + event.duration * 60 * 1000);
+    return startTime.getTime() <= now.getTime() && endTime.getTime() > now.getTime() && !event.all_day;
+  });
+  
+  if (ongoingEvent) {
+    const startTime = ongoingEvent.startTime instanceof Date ? ongoingEvent.startTime : new Date(ongoingEvent.startTime);
+    return {
+      title: truncateTitle(ongoingEvent.title),
+      timeAgo: getTimeSinceStart(startTime)
+    };
+  }
+  
+  return null;
+};
+
 // Helper function to get the next meeting info
 const getNextMeetingInfo = (todayEvents: CalendarEvent[], tomorrowEvents: CalendarEvent[], convertTime: (date: Date) => Date): { prefix: string; meetingDetails: string | null; suffix: string } => {
   const now = new Date();
@@ -64,7 +111,7 @@ const getNextMeetingInfo = (todayEvents: CalendarEvent[], tomorrowEvents: Calend
     const timeUntil = getTimeUntilEvent(startTime); // Use original time for interval calculation
     const truncatedTitle = truncateTitle(nextEvent.title);
     return {
-      prefix: "Your next meeting is",
+      prefix: "Your next event is",
       meetingDetails: `"${truncatedTitle}" ${timeUntil.toLowerCase()}`,
       suffix: "."
     };
@@ -78,14 +125,14 @@ const getNextMeetingInfo = (todayEvents: CalendarEvent[], tomorrowEvents: Calend
     const timeUntil = getTimeUntilEvent(startTime); // Use original time for interval calculation
     const truncatedTitle = truncateTitle(firstTomorrowEvent.title);
     return {
-      prefix: "Your next meeting is",
+      prefix: "Your next event is",
       meetingDetails: `"${truncatedTitle}" ${timeUntil.toLowerCase()}`,
       suffix: "."
     };
   }
   
   return {
-    prefix: "No upcoming meetings found",
+    prefix: "No upcoming events found",
     meetingDetails: null,
     suffix: "."
   };
@@ -220,6 +267,23 @@ const IndexContent = () => {
           <div className="text-lg md:text-2xl font-semibold text-productivity-text-primary">
             {getGreeting(currentTime)}
           </div>
+          
+          {/* Ongoing Meeting Info */}
+          {(() => {
+            const ongoingInfo = getOngoingMeetingInfo(todayEvents);
+            if (ongoingInfo) {
+              return (
+                <div className="text-sm md:text-lg mt-2">
+                  <span className="text-productivity-text-secondary">
+                    Ongoing event <span className="font-bold text-productivity-text-primary">"{ongoingInfo.title}"</span> {ongoingInfo.timeAgo}
+                  </span>
+                </div>
+              );
+            }
+            return null;
+          })()}
+          
+          {/* Next Meeting Info */}
           <div className="text-sm md:text-lg mt-2">
             {(() => {
               const meetingInfo = getNextMeetingInfo(todayEvents, tomorrowEvents, convertTime);
