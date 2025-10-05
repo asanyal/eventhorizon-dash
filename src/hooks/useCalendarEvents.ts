@@ -111,7 +111,11 @@ export const useCalendarEvents = (timeFilter: TimeFilter, specificDate?: string)
       // Try to get from cache first
       const cachedEvents = cache.get<CalendarEvent[]>(cacheKey);
       if (cachedEvents) {
-        console.log(`📦 Using cached events for ${timeFilter} (${cachedEvents.length} events)`);
+        console.log(`📦 Using cached events for ${timeFilter}, specificDate: ${specificDate || 'none'} (${cachedEvents.length} events)`);
+        if (cachedEvents.length > 0) {
+          const cachedDates = cachedEvents.map(e => e.startTime.toISOString().split('T')[0]);
+          console.log(`📦 Cached event dates: ${[...new Set(cachedDates)].join(', ')}`);
+        }
         setEvents(cachedEvents);
         setLoading(false);
         return;
@@ -170,6 +174,10 @@ export const useCalendarEvents = (timeFilter: TimeFilter, specificDate?: string)
   };
 
   useEffect(() => {
+    // Clear events immediately when filter changes to avoid showing stale data
+    console.log(`###Atin useCalendarEvents useEffect triggered - timeFilter: ${timeFilter}, specificDate: ${specificDate || 'none'}`);
+    setEvents([]);
+    setLoading(true);
     fetchEvents();
   }, [timeFilter, specificDate]);
 

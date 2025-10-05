@@ -102,6 +102,8 @@ const IndexContent = () => {
   const [bookmarkedEvents, setBookmarkedEvents] = useState<BookmarkEvent[]>([]);
   const [currentPage, setCurrentPage] = useState<PageType>('calendar');
   const { convertTime } = useTimezone();
+  
+  console.log(`###Atin Index component - calling useCalendarEvents with timeFilter: ${timeFilter}, selectedDate: ${selectedDate || 'empty'}`);
   const { events, loading, error, refetch } = useCalendarEvents(timeFilter, selectedDate);
   
   // Get today's and tomorrow's events for next meeting info
@@ -329,7 +331,22 @@ const IndexContent = () => {
                     <input
                       type="date"
                       value={selectedDate}
-                      onChange={(e) => setSelectedDate(e.target.value)}
+                      onChange={(e) => {
+                        const newDate = e.target.value;
+                        console.log(`###Atin Date picker onChange - old: ${selectedDate}, new: ${newDate}`);
+                        if (newDate) {
+                          // Clear ALL cache entries for the current timeFilter to avoid stale data
+                          // This includes both with and without specific dates
+                          const cacheKeyWithDate = `eventhorizon_events_${timeFilter}_${newDate}`;
+                          const cacheKeyWithoutDate = `eventhorizon_events_${timeFilter}`;
+                          cache.remove(cacheKeyWithDate);
+                          cache.remove(cacheKeyWithoutDate);
+                          console.log(`🗑️ Cleared cache for keys: ${cacheKeyWithDate}, ${cacheKeyWithoutDate}`);
+                        }
+                        console.log(`###Atin About to call setSelectedDate with: ${newDate}`);
+                        setSelectedDate(newDate);
+                        console.log(`###Atin setSelectedDate called`);
+                      }}
                       className="px-2 py-1 text-xs border border-border rounded bg-background text-productivity-text-primary focus:outline-none focus:ring-1 focus:ring-primary w-32 sm:w-28"
                       title="Select specific date"
                     />

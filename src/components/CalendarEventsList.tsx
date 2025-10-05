@@ -1,13 +1,32 @@
 import { CalendarEvent, TimeFilter } from '../types/calendar';
 import { formatDateTime, getTimeUntilEvent, formatDuration, getUrgencyLevel, getUrgencyColor, getIntervalColor } from '../utils/dateUtils';
 import { cn } from '../lib/utils';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Bookmark, FileText, Search, X } from 'lucide-react';
 import { bookmarkApiService } from '../services/bookmarkApi';
 import { CreateBookmarkRequest } from '../types/bookmark';
 import { useTimezone } from '../contexts/TimezoneContext';
 import { useSimpleView } from '../contexts/SimpleViewContext';
 import { useIsMobile } from '../hooks/use-mobile';
+
+// Add CSS for subtle blinking animation
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes subtle-blink {
+    0%, 100% { 
+      opacity: 1;
+      filter: brightness(1);
+    }
+    50% { 
+      opacity: 0.5;
+      filter: brightness(1.1) saturate(1.3) hue-rotate(-10deg);
+    }
+  }
+  .ongoing-event {
+    animation: subtle-blink 3s ease-in-out infinite;
+  }
+`;
+document.head.appendChild(style);
 
 interface CalendarEventsListProps {
   events: CalendarEvent[];
@@ -67,238 +86,223 @@ const getTimeDistribution = (events: CalendarEvent[]) => {
   ].filter((time, idx) => (idx === 0 ? morning : afternoon) > 0);
 };
 
-const getFreeBlocks = (events: CalendarEvent[], timeFilter: TimeFilter, selectedDate?: string) => {
-  if (events.length === 0) return [];
-  
-  // Only calculate free blocks for single-day views
-  const singleDayFilters = ['today', 'tomorrow', 'day-after', '2-days-after'];
-  const isSingleDay = singleDayFilters.includes(timeFilter) || selectedDate;
-  
-  if (!isSingleDay) return [];
-  
-  // Filter out all-day events as they don't block specific time slots
-  const timedEvents = events.filter(event => !event.all_day);
-  
-  if (timedEvents.length === 0) return [];
-  
-  const sortedEvents = [...timedEvents].sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
-  const freeBlocksMap = new Map();
-  
-  // Check gap from 6:30 AM to first meeting
-  if (sortedEvents.length > 0) {
-    const firstEvent = sortedEvents[0];
-    const startOf630am = new Date(firstEvent.startTime);
-    startOf630am.setHours(6, 30, 0, 0); // 6:30 AM
-    
-    // Only consider if first meeting starts after 6:30 AM
-    if (firstEvent.startTime.getTime() > startOf630am.getTime()) {
-      const gapMinutes = Math.floor((firstEvent.startTime.getTime() - startOf630am.getTime()) / (1000 * 60));
-      
-      if (gapMinutes >= 30) { // Only show gaps of 30+ minutes
-        const time = startOf630am.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-        const key = time; // Group by time across days
-        
-        if (freeBlocksMap.has(key)) {
-          freeBlocksMap.set(key, freeBlocksMap.get(key) + gapMinutes);
-        } else {
-          freeBlocksMap.set(key, gapMinutes);
-        }
-      }
-    }
-  }
-  
-  // Check gaps between consecutive meetings
-  for (let i = 0; i < sortedEvents.length - 1; i++) {
-    const currentEnd = new Date(sortedEvents[i].startTime.getTime() + sortedEvents[i].duration * 60 * 1000);
-    const nextStart = sortedEvents[i + 1].startTime;
-    
-    // Only consider gaps that end before or at 7pm
-    const endOf7pm = new Date(currentEnd);
-    endOf7pm.setHours(19, 0, 0, 0); // 7:00 PM
-    
-    if (currentEnd.getTime() >= endOf7pm.getTime()) {
-      continue; // Skip gaps that start after 7pm
-    }
-    
-    // Calculate gap, but cap it at 7pm if it extends beyond
-    let gapEndTime = nextStart;
-    if (nextStart.getTime() > endOf7pm.getTime()) {
-      gapEndTime = endOf7pm;
-    }
-    
-    const gapMinutes = Math.floor((gapEndTime.getTime() - currentEnd.getTime()) / (1000 * 60));
-    
-    if (gapMinutes >= 30) { // Only show gaps of 30+ minutes
-      const time = currentEnd.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-      const key = time; // Group by time across days
-      
-      if (freeBlocksMap.has(key)) {
-        freeBlocksMap.set(key, freeBlocksMap.get(key) + gapMinutes);
-      } else {
-        freeBlocksMap.set(key, gapMinutes);
-      }
-    }
-  }
-  
-  // Check gap from last meeting to 7pm
-  if (sortedEvents.length > 0) {
-    const lastEvent = sortedEvents[sortedEvents.length - 1];
-    const lastEventEnd = new Date(lastEvent.startTime.getTime() + lastEvent.duration * 60 * 1000);
-    const endOf7pm = new Date(lastEventEnd);
-    endOf7pm.setHours(19, 0, 0, 0); // 7:00 PM
-    
-    // Only consider if last meeting ends before 7pm
-    if (lastEventEnd.getTime() < endOf7pm.getTime()) {
-      const gapMinutes = Math.floor((endOf7pm.getTime() - lastEventEnd.getTime()) / (1000 * 60));
-      
-      if (gapMinutes >= 30) { // Only show gaps of 30+ minutes
-        const time = lastEventEnd.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-        const key = time; // Group by time across days
-        
-        if (freeBlocksMap.has(key)) {
-          freeBlocksMap.set(key, freeBlocksMap.get(key) + gapMinutes);
-        } else {
-          freeBlocksMap.set(key, gapMinutes);
-        }
-      }
-    }
-  }
-  
-  // Convert map to array and format
-  return Array.from(freeBlocksMap.entries())
-    .map(([time, totalMinutes]) => {
-      const hours = Math.floor(totalMinutes / 60);
-      const minutes = totalMinutes % 60;
-      const duration = hours > 0 ? `${hours}h${minutes > 0 ? ` ${minutes}min` : ''}` : `${minutes}min`;
-      return { duration, time };
-    })
-    .slice(0, 4); // Limit to 4 blocks
+// Helper function to get day key for grouping
+const getDayKey = (date: Date): string => {
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 };
 
-// Helper function to calculate free time between events, including start/end of day
-const calculateFreeTime = (
-  currentEvent: CalendarEvent, 
-  nextEvent: CalendarEvent | null, 
-  isFirstEvent: boolean = false, 
-  isLastEvent: boolean = false,
-  allEvents: CalendarEvent[] = []
-): { duration: string; show: boolean; type: 'between' | 'start' | 'end' } => {
-  
-  // Helper function to check if two dates are on the same day
-  const isSameDay = (date1: Date, date2: Date) => {
-    return date1.getFullYear() === date2.getFullYear() &&
-           date1.getMonth() === date2.getMonth() &&
-           date1.getDate() === date2.getDate();
-  };
-  
-  // Helper function to get 7:30 PM cutoff for a given date
-  const getDayEndCutoff = (date: Date) => {
-    const cutoff = new Date(date);
-    cutoff.setHours(19, 30, 0, 0); // 7:30 PM
-    return cutoff;
-  };
-  
-  // Handle start of day (before first event)
-  if (isFirstEvent && !currentEvent.all_day) {
-    const eventStart = currentEvent.startTime;
-    const dayStart = new Date(eventStart);
-    dayStart.setHours(6, 30, 0, 0); // 6:30 AM
-    
-    // Only consider if event starts on the same day and before 7:30 PM
-    const dayEnd = getDayEndCutoff(eventStart);
-    if (isSameDay(eventStart, dayStart) && eventStart.getTime() > dayStart.getTime() && eventStart.getTime() <= dayEnd.getTime()) {
-      const gapMinutes = Math.floor((eventStart.getTime() - dayStart.getTime()) / (1000 * 60));
-      
-      if (gapMinutes >= 75) {
-        const hours = Math.floor(gapMinutes / 60);
-        const minutes = gapMinutes % 60;
-        
-        let duration = '';
-        if (hours > 0) {
-          duration += `${hours}h`;
-          if (minutes > 0) {
-            duration += ` ${minutes}m`;
-          }
-        } else {
-          duration = `${minutes}m`;
-        }
-        
-        return { duration: `${duration} free`, show: true, type: 'start' };
-      }
-    }
-  }
-  
-  // Handle end of day (after last event)
-  if (isLastEvent && !currentEvent.all_day) {
-    const eventEnd = new Date(currentEvent.startTime.getTime() + currentEvent.duration * 60 * 1000);
-    const dayEnd = getDayEndCutoff(currentEvent.startTime);
-    
-    // Only consider if event starts and ends on the same day, and ends before 7:30 PM
-    if (isSameDay(currentEvent.startTime, eventEnd) && eventEnd.getTime() < dayEnd.getTime()) {
-      const gapMinutes = Math.floor((dayEnd.getTime() - eventEnd.getTime()) / (1000 * 60));
-      
-      if (gapMinutes >= 75) {
-        const hours = Math.floor(gapMinutes / 60);
-        const minutes = gapMinutes % 60;
-        
-        let duration = '';
-        if (hours > 0) {
-          duration += `${hours}h`;
-          if (minutes > 0) {
-            duration += ` ${minutes}m`;
-          }
-        } else {
-          duration = `${minutes}m`;
-        }
-        
-        return { duration: `${duration} free`, show: true, type: 'end' };
-      }
-    }
-  }
-  
-  // Handle between events
-  if (!nextEvent || currentEvent.all_day || nextEvent.all_day) {
-    return { duration: '', show: false, type: 'between' };
-  }
-  
-  const currentEndTime = new Date(currentEvent.startTime.getTime() + currentEvent.duration * 60 * 1000);
-  const nextStartTime = nextEvent.startTime;
-  const currentDayEnd = getDayEndCutoff(currentEvent.startTime);
-  
-  // Skip if current event ends after 7:30 PM
-  if (currentEndTime.getTime() >= currentDayEnd.getTime()) {
-    return { duration: '', show: false, type: 'between' };
-  }
-  
-  // Skip if events are on different days
-  if (!isSameDay(currentEvent.startTime, nextEvent.startTime)) {
-    return { duration: '', show: false, type: 'between' };
-  }
-  
-  // Calculate gap, but cap it at 7:30 PM if next event starts after 7:30 PM
-  const effectiveNextStart = nextStartTime.getTime() > currentDayEnd.getTime() ? currentDayEnd : nextStartTime;
-  const gapMinutes = Math.floor((effectiveNextStart.getTime() - currentEndTime.getTime()) / (1000 * 60));
-  
-  // Only show if gap is 75+ minutes
-  if (gapMinutes < 75) {
-    return { duration: '', show: false, type: 'between' };
-  }
-  
-  const hours = Math.floor(gapMinutes / 60);
-  const minutes = gapMinutes % 60;
-  
-  let duration = '';
-  if (hours > 0) {
-    duration += `${hours}h`;
-    if (minutes > 0) {
-      duration += ` ${minutes}m`;
-    }
-  } else {
-    duration = `${minutes}m`;
-  }
-  
-  return { duration: `${duration} free`, show: true, type: 'between' };
+// Helper function to check if two dates are on the same day
+const isSameDay = (date1: Date, date2: Date): boolean => {
+  return date1.getFullYear() === date2.getFullYear() &&
+         date1.getMonth() === date2.getMonth() &&
+         date1.getDate() === date2.getDate();
 };
+
+// Helper function to format free time duration
+const formatFreeTimeDuration = (minutes: number): string => {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  
+  if (hours > 0 && mins > 0) {
+    return `${hours}h ${mins}min`;
+  } else if (hours > 0) {
+    return `${hours}h`;
+  } else {
+    return `${mins}min`;
+  }
+};
+
+// Calculate free time between events
+interface FreeTimeBlock {
+  duration: string;
+  show: boolean;
+  type: 'before-first' | 'between' | 'after-last';
+}
+
+// Calculate free time BEFORE the first event of the day
+const calculateBeforeFirstFreeTime = (
+  firstEvent: CalendarEvent,
+  convertTime: (date: Date) => Date,
+  loggedSet?: Set<string>
+): FreeTimeBlock => {
+  const now = new Date();
+  const currentStartConverted = convertTime(firstEvent.startTime);
+  
+  // Define day boundaries in user's timezone
+  const dayStart = new Date(currentStartConverted);
+  dayStart.setHours(6, 30, 0, 0);
+  
+  if (currentStartConverted.getTime() > dayStart.getTime()) {
+    const gapMinutes = Math.floor((currentStartConverted.getTime() - dayStart.getTime()) / (1000 * 60));
+    
+    if (gapMinutes >= 75 && now.getTime() < currentStartConverted.getTime()) {
+      const logKey = `before-${firstEvent.id}`;
+      if (loggedSet && !loggedSet.has(logKey)) {
+        console.log(`###Atin Free time detected BEFORE FIRST event - Gap: ${gapMinutes} min, Next: "${firstEvent.title}"`);
+        loggedSet.add(logKey);
+      }
+      
+      // Check if we're in the free time period
+      if (now.getTime() >= dayStart.getTime() && now.getTime() < currentStartConverted.getTime()) {
+        const remainingMinutes = Math.floor((currentStartConverted.getTime() - now.getTime()) / (1000 * 60));
+        const totalDuration = formatFreeTimeDuration(gapMinutes);
+        const remaining = formatFreeTimeDuration(remainingMinutes);
+        return {
+          duration: `${totalDuration} free (${remaining} left)`,
+          show: true,
+          type: 'before-first'
+        };
+      }
+      
+      return {
+        duration: `${formatFreeTimeDuration(gapMinutes)} free`,
+        show: true,
+        type: 'before-first'
+      };
+    }
+  }
+  
+  return { duration: '', show: false, type: 'before-first' };
+};
+
+// Calculate free time AFTER an event (between events or after last event)
+const calculateFreeTime = (
+  currentEvent: CalendarEvent,
+  nextEvent: CalendarEvent | null,
+  isLastOfDay: boolean,
+  convertTime: (date: Date) => Date,
+  loggedSet?: Set<string>
+): FreeTimeBlock => {
+  const now = new Date();
+  console.log(`###Atin calculateFreeTime called for "${currentEvent.title}", isLast: ${isLastOfDay}, nextEvent: ${nextEvent?.title || 'none'}`);
+  
+  // Convert times to user's timezone for display
+  const currentStartConverted = convertTime(currentEvent.startTime);
+  const currentEndTime = new Date(currentEvent.startTime.getTime() + currentEvent.duration * 60 * 1000);
+  const currentEndConverted = convertTime(currentEndTime);
+  
+  // Check if event spans multiple days - ignore these
+  if (!isSameDay(currentStartConverted, currentEndConverted)) {
+    return { duration: '', show: false, type: 'between' };
+  }
+  
+  // Define day boundaries in user's timezone
+  const dayEnd = new Date(currentStartConverted);
+  dayEnd.setHours(19, 30, 0, 0);
+  
+  // Check for free time between events (or to end of day if no more timed events)
+  if (nextEvent) {
+    const nextStartConverted = convertTime(nextEvent.startTime);
+    const sameDay = isSameDay(currentEndConverted, nextStartConverted);
+    console.log(`###Atin Checking between "${currentEvent.title}" and "${nextEvent.title}" - all_day: ${nextEvent.all_day}, sameDay: ${sameDay}, currentEnd: ${currentEndConverted.toLocaleString()}, nextStart: ${nextStartConverted.toLocaleString()}`);
+    
+    if (sameDay) {
+      // If next event is all-day or after 7:30 PM, cap at 7:30 PM
+      if (nextEvent.all_day || nextStartConverted.getTime() >= dayEnd.getTime()) {
+        const freeTimeEnd = dayEnd;
+        const gapMinutes = Math.floor((freeTimeEnd.getTime() - currentEndConverted.getTime()) / (1000 * 60));
+        
+        console.log(`###Atin Next event is all-day or after 7:30 PM, capping - gapMinutes: ${gapMinutes}, Prev: "${currentEvent.title}"`);
+        
+        if (gapMinutes >= 75 && now.getTime() < freeTimeEnd.getTime() && currentEndConverted.getTime() < freeTimeEnd.getTime()) {
+          const logKey = `between-capped-${currentEvent.id}`;
+          if (loggedSet && !loggedSet.has(logKey)) {
+            console.log(`###Atin Free time detected (capped) - Gap: ${gapMinutes} min, Prev: "${currentEvent.title}"`);
+            loggedSet.add(logKey);
+          }
+          
+          // Check if we're in the free time period
+          if (now.getTime() >= currentEndConverted.getTime() && now.getTime() < freeTimeEnd.getTime()) {
+            const remainingMinutes = Math.floor((freeTimeEnd.getTime() - now.getTime()) / (1000 * 60));
+            const totalDuration = formatFreeTimeDuration(gapMinutes);
+            const remaining = formatFreeTimeDuration(remainingMinutes);
+            return {
+              duration: `${totalDuration} free (${remaining} left)`,
+              show: true,
+              type: 'between'
+            };
+          }
+          
+          return {
+            duration: `${formatFreeTimeDuration(gapMinutes)} free`,
+            show: true,
+            type: 'between'
+          };
+        }
+      } else {
+        // Next event is timed and before 7:30 PM - normal between-events calculation
+        const freeTimeEnd = nextStartConverted;
+        const gapMinutes = Math.floor((freeTimeEnd.getTime() - currentEndConverted.getTime()) / (1000 * 60));
+        
+        console.log(`###Atin Between meetings - gapMinutes: ${gapMinutes}, Prev: "${currentEvent.title}", Next: "${nextEvent.title}"`);
+        
+        if (gapMinutes >= 75 && now.getTime() < freeTimeEnd.getTime()) {
+          const logKey = `between-${currentEvent.id}-${nextEvent.id}`;
+          if (loggedSet && !loggedSet.has(logKey)) {
+            console.log(`###Atin Free time detected - Gap: ${gapMinutes} min, Prev: "${currentEvent.title}", Next: "${nextEvent.title}"`);
+            loggedSet.add(logKey);
+          }
+          
+          // Check if we're in the free time period
+          if (now.getTime() >= currentEndConverted.getTime() && now.getTime() < freeTimeEnd.getTime()) {
+            const remainingMinutes = Math.floor((freeTimeEnd.getTime() - now.getTime()) / (1000 * 60));
+            const totalDuration = formatFreeTimeDuration(gapMinutes);
+            const remaining = formatFreeTimeDuration(remainingMinutes);
+            return {
+              duration: `${totalDuration} free (${remaining} left)`,
+              show: true,
+              type: 'between'
+            };
+          }
+          
+          return {
+            duration: `${formatFreeTimeDuration(gapMinutes)} free`,
+            show: true,
+            type: 'between'
+          };
+        }
+      }
+    }
+  }
+  
+  // Check for free time after last event
+  // This applies if: (1) it's marked as last of day, OR (2) next event is after 7:30 PM
+  const isEffectivelyLastEvent = isLastOfDay || (nextEvent && convertTime(nextEvent.startTime).getTime() >= dayEnd.getTime());
+  
+  if (isEffectivelyLastEvent && currentEndConverted.getTime() < dayEnd.getTime()) {
+    const gapMinutes = Math.floor((dayEnd.getTime() - currentEndConverted.getTime()) / (1000 * 60));
+    console.log(`###Atin AFTER LAST event - gapMinutes: ${gapMinutes}, Prev: "${currentEvent.title}", isLastOfDay: ${isLastOfDay}, isEffectivelyLast: ${isEffectivelyLastEvent}, now < dayEnd: ${now.getTime() < dayEnd.getTime()}`);
+    
+    if (gapMinutes >= 75 && now.getTime() < dayEnd.getTime()) {
+      const logKey = `after-${currentEvent.id}`;
+      if (loggedSet && !loggedSet.has(logKey)) {
+        console.log(`###Atin Free time detected AFTER LAST event - Gap: ${gapMinutes} min, Prev: "${currentEvent.title}"`);
+        loggedSet.add(logKey);
+      }
+      
+      // Check if we're in the free time period
+      if (now.getTime() >= currentEndConverted.getTime() && now.getTime() < dayEnd.getTime()) {
+        const remainingMinutes = Math.floor((dayEnd.getTime() - now.getTime()) / (1000 * 60));
+        const totalDuration = formatFreeTimeDuration(gapMinutes);
+        const remaining = formatFreeTimeDuration(remainingMinutes);
+        return {
+          duration: `${totalDuration} free (${remaining} left)`,
+          show: true,
+          type: 'after-last'
+        };
+      }
+      
+      return {
+        duration: `${formatFreeTimeDuration(gapMinutes)} free`,
+        show: true,
+        type: 'after-last'
+      };
+    }
+  }
+  
+  return { duration: '', show: false, type: 'between' };
+};
+
 
 // Helper function to filter events based on search query
 const filterEventsBySearch = (events: CalendarEvent[], searchQuery: string, convertTime: (date: Date) => Date) => {
@@ -346,9 +350,33 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
   const [pinnedTooltip, setPinnedTooltip] = useState<string | null>(null);
   const [meetingTypeFilter, setMeetingTypeFilter] = useState<'all' | 'internal' | 'external'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const { convertTime } = useTimezone();
   const { isSimpleView } = useSimpleView();
   const isMobile = useIsMobile();
+  const loggedFreeTimeRef = useRef(new Set<string>());
+
+  // Debug: Log received events
+  console.log(`###Atin CalendarEventsList received ${events.length} events for timeFilter: ${timeFilter}, selectedDate: ${selectedDate || 'none'}`);
+  if (events.length > 0) {
+    const eventDates = events.map(e => e.startTime.toISOString().split('T')[0]);
+    const uniqueDates = [...new Set(eventDates)];
+    console.log(`###Atin Event dates in list: ${uniqueDates.join(', ')}`);
+  }
+
+  // Timer to refresh free time remaining calculations every minute
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setRefreshTrigger(prev => prev + 1);
+    }, 60000); // Update every 60 seconds
+
+    return () => clearInterval(timer);
+  }, []);
+
+  // Clear logged free time when events change
+  useEffect(() => {
+    loggedFreeTimeRef.current.clear();
+  }, [events, timeFilter, selectedDate, searchQuery, showPastEvents, meetingTypeFilter]);
 
   // Handle escape key to close pinned tooltip
   useEffect(() => {
@@ -411,7 +439,6 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
   
   const meetingTypes = getMeetingTypes(searchFilteredEvents);
   const timeDistribution = getTimeDistribution(eventsWithConvertedTimes);
-  const freeBlocks = getFreeBlocks(eventsWithConvertedTimes, timeFilter, selectedDate);
   
   // Simple View - Show only essential information
   if (isSimpleView) {
@@ -439,21 +466,6 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
           </div>
         )}
 
-        {/* Simple View - Free Times Only */}
-        {searchFilteredEvents.length > 0 && !loading && freeBlocks.length > 0 && (
-          <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-            <h3 className="text-lg font-semibold text-green-800 mb-3">Free Time</h3>
-            <div className="space-y-2">
-              {freeBlocks.map((block, idx) => (
-                <div key={idx} className="bg-white rounded-lg p-3 border border-green-100">
-                  <div className="text-lg font-semibold text-green-800">
-                    <span className="text-blue-600 font-bold">{block.duration}</span> <span className="text-black">free at {block.time}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Simple View - Events List */}
         <div className="space-y-3">
@@ -468,8 +480,28 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
           ) : (
             (() => {
               const filteredEvents = searchFilteredEvents.filter(event => {
-                const isPastEvent = event.startTime.getTime() < new Date().getTime();
+                const eventEndTime = new Date(event.startTime.getTime() + event.duration * 60 * 1000);
+                const isPastEvent = eventEndTime.getTime() < new Date().getTime();
                 return showPastEvents || !isPastEvent;
+              });
+              
+              // Filter out all-day events for free time calculation
+              const timedEvents = filteredEvents.filter(e => !e.all_day);
+              
+              // Group events by day
+              const eventsByDay = new Map<string, CalendarEvent[]>();
+              timedEvents.forEach(event => {
+                const convertedStart = convertTime(event.startTime);
+                const dayKey = getDayKey(convertedStart);
+                if (!eventsByDay.has(dayKey)) {
+                  eventsByDay.set(dayKey, []);
+                }
+                eventsByDay.get(dayKey)!.push(event);
+              });
+              
+              // Sort events within each day
+              eventsByDay.forEach(dayEvents => {
+                dayEvents.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
               });
               
               return filteredEvents.map((event, index) => {
@@ -478,27 +510,51 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
                   startTime: convertTime(event.startTime)
                 };
                 
-                const isPastEvent = event.startTime.getTime() < new Date().getTime();
+                const eventEndTime = new Date(event.startTime.getTime() + event.duration * 60 * 1000);
+                const now = new Date();
+                const isPastEvent = eventEndTime.getTime() < now.getTime();
+                const isOngoing = event.startTime.getTime() <= now.getTime() && eventEndTime.getTime() > now.getTime();
                 const isBookmarked = bookmarkedEventTitles.includes(event.title);
                 
-                // Calculate free time to next event
-                const nextEventInList = index < filteredEvents.length - 1 ? filteredEvents[index + 1] : null;
-                const isFirstEvent = index === 0;
-                const isLastEvent = index === filteredEvents.length - 1;
-                const freeTime = calculateFreeTime(event, nextEventInList, isFirstEvent, isLastEvent, filteredEvents);
+                // Calculate free time for timed events only (refreshes with refreshTrigger)
+                let beforeFirstFreeTime: FreeTimeBlock = { duration: '', show: false, type: 'before-first' };
+                let freeTime: FreeTimeBlock = { duration: '', show: false, type: 'between' };
+                
+                if (!event.all_day) {
+                  const dayKey = getDayKey(convertedEvent.startTime);
+                  const dayEvents = eventsByDay.get(dayKey) || [];
+                  const eventIndexInDay = dayEvents.findIndex(e => e.id === event.id);
+                  
+                  if (eventIndexInDay !== -1) {
+                    const isFirstOfDay = eventIndexInDay === 0;
+                    const isLastOfDay = eventIndexInDay === dayEvents.length - 1;
+                    const nextEvent = !isLastOfDay ? dayEvents[eventIndexInDay + 1] : null;
+                    
+                    // Check for free time before first event
+                    if (isFirstOfDay) {
+                      beforeFirstFreeTime = calculateBeforeFirstFreeTime(event, convertTime, loggedFreeTimeRef.current);
+                    }
+                    
+                    // Check for free time after event
+                    freeTime = calculateFreeTime(event, nextEvent, isLastOfDay, convertTime, loggedFreeTimeRef.current);
+                  }
+                }
+                // eslint-disable-next-line react-hooks/exhaustive-deps
+                void refreshTrigger; // Force re-render every minute to update remaining time
                 
                 return (
                   <div key={event.id}>
-                    {/* Free Time Ribbon - Start of Day (Simple View) */}
-                    {freeTime.show && freeTime.type === 'start' && (
+                    {/* Free Time Ribbon - Before First Event */}
+                    {beforeFirstFreeTime.show && (
                       <div className="mb-3">
                         <div className="bg-green-100 border-l-4 border-green-400 px-3 py-1 rounded-r-md">
-                          <div className="text-xs font-medium text-green-800">
-                            {freeTime.duration}
+                          <div className="text-sm font-medium text-green-800">
+                            {beforeFirstFreeTime.duration}
                           </div>
                         </div>
                       </div>
                     )}
+                    
                     
                     <div
                       className={cn(
@@ -507,7 +563,8 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
                           ? "bg-red-50 border-red-200 hover:border-red-300 hover:shadow-md"
                           : isPastEvent 
                           ? "border-gray-200 bg-gray-50" 
-                          : "bg-white border-blue-200 hover:border-blue-300 hover:shadow-md"
+                          : "bg-white border-blue-200 hover:border-blue-300 hover:shadow-md",
+                        isOngoing && "ongoing-event"
                       )}
                     >
                     <div className="flex items-center gap-3">
@@ -551,7 +608,7 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
                       <div className="flex-1">
                         <div className={cn(
                           "text-lg font-semibold",
-                          isPastEvent ? "text-gray-500 line-through" : "text-gray-900"
+                          isPastEvent ? "text-gray-500 line-through" : isOngoing ? "text-red-600 font-bold" : "text-gray-900"
                         )}>
                           {event.title}
                         </div>
@@ -575,18 +632,18 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
                         <Bookmark className={cn("w-5 h-5", isBookmarked && "fill-current")} />
                       </button>
                     </div>
+                    </div>
                     
-                    {/* Free Time Ribbon - Between/End of Day (Simple View) */}
-                    {freeTime.show && (freeTime.type === 'between' || freeTime.type === 'end') && (
+                    {/* Free Time Ribbon - Between/After Events */}
+                    {freeTime.show && (freeTime.type === 'between' || freeTime.type === 'after-last') && (
                       <div className="mt-3">
                         <div className="bg-green-100 border-l-4 border-green-400 px-3 py-1 rounded-r-md">
-                          <div className="text-xs font-medium text-green-800">
+                          <div className="text-sm font-medium text-green-800">
                             {freeTime.duration}
                           </div>
                         </div>
                       </div>
                     )}
-                    </div>
                   </div>
                 );
               });
@@ -627,9 +684,9 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
           <div className={cn(
             "gap-4 md:gap-6 text-xs",
             isMobile 
-              ? "grid grid-cols-2 sm:grid-cols-4" 
+              ? "grid grid-cols-2 sm:grid-cols-3" 
               : "grid"
-          )} style={!isMobile ? { gridTemplateColumns: '1fr 0.8fr 1fr 1.2fr' } : undefined}>
+          )} style={!isMobile ? { gridTemplateColumns: '1fr 0.8fr 1fr' } : undefined}>
             {/* Total Events */}
             <div>
               <div className="text-productivity-text-secondary font-medium mb-2">Events</div>
@@ -676,35 +733,6 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
               </div>
             </div>
             
-            {/* Free Blocks */}
-            <div>
-              <div className="text-productivity-text-secondary font-medium mb-2">Free</div>
-              <div className="space-y-1">
-                {freeBlocks.length === 0 ? (
-                  <span className="text-productivity-text-tertiary">-</span>
-                ) : (
-                  freeBlocks.map((block, idx) => {
-                    // Check if duration is >= 1 hour
-                    const durationParts = block.duration.split('h');
-                    const hasHour = durationParts.length > 1;
-                    const hours = hasHour ? parseInt(durationParts[0]) : 0;
-                    const isLongBlock = hours >= 1;
-                    
-                    return (
-                      <div key={idx} className="flex items-center gap-1">
-                        <span className="w-1 h-1 bg-productivity-text-tertiary rounded-full"></span>
-                        <span className={cn(
-                          "text-productivity-text-primary",
-                          isLongBlock && "text-green-600 font-medium"
-                        )}>
-                          {block.duration} at {block.time}
-                        </span>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
           </div>
         </div>
       )}
@@ -808,7 +836,8 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
         ) : (
           (() => {
             const filteredEvents = searchFilteredEvents.filter(event => {
-              const isPastEvent = event.startTime.getTime() < new Date().getTime();
+              const eventEndTime = new Date(event.startTime.getTime() + event.duration * 60 * 1000);
+              const isPastEvent = eventEndTime.getTime() < new Date().getTime();
               const pastEventFilter = showPastEvents || !isPastEvent;
               
               // Apply meeting type filter
@@ -822,6 +851,25 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
               return pastEventFilter && meetingTypeFilterMatch;
             });
             
+            // Filter out all-day events for free time calculation
+            const timedEvents = filteredEvents.filter(e => !e.all_day);
+            
+            // Group events by day
+            const eventsByDay = new Map<string, CalendarEvent[]>();
+            timedEvents.forEach(event => {
+              const convertedStart = convertTime(event.startTime);
+              const dayKey = getDayKey(convertedStart);
+              if (!eventsByDay.has(dayKey)) {
+                eventsByDay.set(dayKey, []);
+              }
+              eventsByDay.get(dayKey)!.push(event);
+            });
+            
+            // Sort events within each day
+            eventsByDay.forEach(dayEvents => {
+              dayEvents.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+            });
+            
             return filteredEvents.map((event, index) => {
               // Convert event time to selected timezone for display
               const convertedEvent = {
@@ -831,7 +879,10 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
               
               const urgencyLevel = getUrgencyLevel(event.startTime);
               const isEven = index % 2 === 0;
-              const isPastEvent = event.startTime.getTime() < new Date().getTime(); // Use original time for past check
+              const eventEndTime = new Date(event.startTime.getTime() + event.duration * 60 * 1000);
+              const now = new Date();
+              const isPastEvent = eventEndTime.getTime() < now.getTime(); // Check end time to include ongoing events
+              const isOngoing = event.startTime.getTime() <= now.getTime() && eventEndTime.getTime() > now.getTime();
               const isTooltipPinned = pinnedTooltip === event.id;
               
               // Find the next immediate event (first future event in the sorted list)
@@ -848,39 +899,52 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
               const nextEventDate = index < filteredEvents.length - 1 ? formatMinimalDate(convertTime(filteredEvents[index + 1].startTime)) : null;
               const isLastOfDay = nextEventDate && currentDate !== nextEventDate;
               
-              // Calculate free time to next event
-              const nextEventInList = index < filteredEvents.length - 1 ? filteredEvents[index + 1] : null;
-              const isFirstEvent = index === 0;
-              const isLastEvent = index === filteredEvents.length - 1;
-              const freeTime = calculateFreeTime(event, nextEventInList, isFirstEvent, isLastEvent, filteredEvents);
-            
-            // Debug logging
-            if (index === 0) {
-              console.log('Events dates:', searchFilteredEvents.map(e => formatMinimalDate(e.startTime)));
-            }
-            if (isLastOfDay) {
-              console.log(`Day separator after: ${currentDate} -> ${nextEventDate}`);
-            }
+              // Calculate free time for timed events only (refreshes with refreshTrigger)
+              let beforeFirstFreeTime: FreeTimeBlock = { duration: '', show: false, type: 'before-first' };
+              let freeTime: FreeTimeBlock = { duration: '', show: false, type: 'between' };
+              
+              if (!event.all_day) {
+                const dayKey = getDayKey(convertedEvent.startTime);
+                const dayEvents = eventsByDay.get(dayKey) || [];
+                const eventIndexInDay = dayEvents.findIndex(e => e.id === event.id);
+                
+                if (eventIndexInDay !== -1) {
+                  const isFirstOfDay = eventIndexInDay === 0;
+                  const isLastOfDay = eventIndexInDay === dayEvents.length - 1;
+                  const nextEventInDay = !isLastOfDay ? dayEvents[eventIndexInDay + 1] : null;
+                  
+                  // Check for free time before first event
+                  if (isFirstOfDay) {
+                    beforeFirstFreeTime = calculateBeforeFirstFreeTime(event, convertTime, loggedFreeTimeRef.current);
+                  }
+                  
+                  // Check for free time after event
+                  freeTime = calculateFreeTime(event, nextEventInDay, isLastOfDay, convertTime, loggedFreeTimeRef.current);
+                }
+              }
+              // eslint-disable-next-line react-hooks/exhaustive-deps
+              void refreshTrigger; // Force re-render every minute to update remaining time
             
             return (
               <div key={event.id}>
-                {/* Free Time Ribbon - Start of Day (Desktop View) */}
-                {freeTime.show && freeTime.type === 'start' && !isMobile && (
+                {/* Free Time Ribbon - Before First Event (Desktop) */}
+                {beforeFirstFreeTime.show && !isMobile && (
                   <div className="px-3 py-1 bg-green-100 border-l-4 border-green-400">
                     <div className="text-xs font-medium text-green-800">
-                      {freeTime.duration}
+                      {beforeFirstFreeTime.duration}
                     </div>
                   </div>
                 )}
                 
+                
                 {isMobile ? (
                   <div>
-                    {/* Free Time Ribbon - Start of Day (Mobile View) */}
-                    {freeTime.show && freeTime.type === 'start' && (
+                    {/* Free Time Ribbon - Before First Event (Mobile) */}
+                    {beforeFirstFreeTime.show && (
                       <div className="mb-3">
                         <div className="bg-green-100 border-l-4 border-green-400 px-3 py-1 rounded-r-md">
                           <div className="text-xs font-medium text-green-800">
-                            {freeTime.duration}
+                            {beforeFirstFreeTime.duration}
                           </div>
                         </div>
                       </div>
@@ -895,7 +959,8 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
                         : isEven ? "bg-productivity-surface" : "bg-table-row-even",
                       isPastEvent && "opacity-60",
                       event.all_day && !isBookmarked && "bg-indigo-50 border-l-4 border-indigo-300",
-                      isNextEvent && "ring-2 ring-red-200 border-red-300"
+                      isNextEvent && "ring-2 ring-red-200 border-red-300",
+                      isOngoing && "ongoing-event"
                     )}
                   >
                     {/* Mobile Header Row */}
@@ -929,9 +994,13 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
                       <div className={cn(
                         "text-sm font-medium break-words leading-tight flex items-center gap-2",
                         isPastEvent && "line-through",
-                        isNextEvent && "font-bold text-red-600"
+                        isNextEvent && "font-bold text-red-600",
+                        isOngoing && !isNextEvent && "font-bold text-red-600"
                       )}>
-                        <span className="text-productivity-text-primary">
+                        <span className={cn(
+                          "text-productivity-text-primary",
+                          isOngoing && "text-red-600"
+                        )}>
                           {event.title}
                         </span>
                         {isExternalMeeting(event.attendees) && (
@@ -1033,9 +1102,10 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
                         </div>
                       )}
                     </div>
+                    </div>
                     
-                    {/* Free Time Ribbon - Between/End of Day (Mobile View) */}
-                    {freeTime.show && (freeTime.type === 'between' || freeTime.type === 'end') && (
+                    {/* Free Time Ribbon - Between/After Events (Mobile) */}
+                    {freeTime.show && (freeTime.type === 'between' || freeTime.type === 'after-last') && (
                       <div className="mt-3">
                         <div className="bg-green-100 border-l-4 border-green-400 px-3 py-1 rounded-r-md">
                           <div className="text-xs font-medium text-green-800">
@@ -1044,7 +1114,6 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
                         </div>
                       </div>
                     )}
-                  </div>
                   </div>
                 ) : (
                   // Desktop Table Layout
@@ -1055,7 +1124,8 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
                         ? "bg-red-50 hover:bg-red-100"
                         : isEven ? "bg-productivity-surface" : "bg-table-row-even",
                       isPastEvent && "opacity-60",
-                      event.all_day && !isBookmarked && "bg-indigo-50 border-l-4 border-indigo-300"
+                      event.all_day && !isBookmarked && "bg-indigo-50 border-l-4 border-indigo-300",
+                      isOngoing && "ongoing-event"
                     )}
                   >
                   <div className="grid grid-cols-12 gap-1 items-center">
@@ -1127,7 +1197,8 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
                     <span className={cn(
                       "text-productivity-text-primary text-xs break-words leading-tight",
                       isPastEvent && "line-through",
-                      isNextEvent && "font-bold"
+                      isNextEvent && "font-bold",
+                      isOngoing && !isNextEvent && "font-bold text-red-600"
                     )}>
                       {event.title}
                     </span>
@@ -1236,13 +1307,11 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
                   </div>
                 )}
                 
-                {/* Free Time Ribbon - Between/End of Day (Desktop View) */}
-                {freeTime.show && (freeTime.type === 'between' || freeTime.type === 'end') && (
-                  <div className="mt-1 mb-1">
-                    <div className="bg-green-100 border-l-4 border-green-400 px-3 py-1 rounded-r-md">
-                      <div className="text-xs font-medium text-green-800">
-                        {freeTime.duration}
-                      </div>
+                {/* Free Time Ribbon - Between/After Events (Desktop) */}
+                {freeTime.show && (freeTime.type === 'between' || freeTime.type === 'after-last') && !isMobile && (
+                  <div className="px-3 py-1 bg-green-100 border-l-4 border-green-400">
+                    <div className="text-xs font-medium text-green-800">
+                      {freeTime.duration}
                     </div>
                   </div>
                 )}

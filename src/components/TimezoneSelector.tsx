@@ -1,13 +1,13 @@
 import { Clock, Sparkles } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { useTimezone, timezoneOptions } from '../contexts/TimezoneContext';
 import { useSimpleView } from '../contexts/SimpleViewContext';
 import { Button } from './ui/button';
 import { cn } from '../lib/utils';
 
 export const TimezoneSelector = () => {
-  const { selectedTimezone, setTimezone } = useTimezone();
   const { isSimpleView, toggleSimpleView } = useSimpleView();
+  
+  // Get system timezone
+  const systemTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   return (
     <div className="flex items-center justify-end gap-3">
@@ -27,25 +27,12 @@ export const TimezoneSelector = () => {
         <Sparkles className="w-3 h-3 mr-1" />
       </Button>
 
-      {/* Timezone Selector */}
-      <div className="flex items-center gap-2">
+      {/* System Timezone Display */}
+      <div className="flex items-center gap-2 px-3 h-8 rounded-md bg-productivity-surface border border-border">
         <Clock className="w-4 h-4 text-productivity-text-secondary" />
-        <Select value={selectedTimezone} onValueChange={setTimezone}>
-          <SelectTrigger className="w-[140px] h-8 text-xs bg-productivity-surface border-border">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="bg-productivity-surface border-border">
-            {timezoneOptions.map((option) => (
-              <SelectItem 
-                key={option.value} 
-                value={option.value}
-                className="hover:bg-table-row-hover text-xs"
-              >
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <span className="text-xs text-productivity-text-primary font-medium">
+          {systemTimezone}
+        </span>
       </div>
     </div>
   );
