@@ -449,7 +449,26 @@ export const KeyEventsSection = ({ refreshTrigger, onBookmarkDeleted }: KeyEvent
             return !realtimeCountdown.includes("ago");
           }).map((bookmark, index) => {
             const realtimeCountdown = getRealtimeCountdown(bookmark);
-            const isToday = realtimeCountdown === "Today" || realtimeCountdown.includes("In") && !realtimeCountdown.includes("day");
+            
+            // Determine row background color based on time until event
+            const isToday = realtimeCountdown === "Today" || (realtimeCountdown.includes("In") && !realtimeCountdown.includes("day"));
+            
+            // Check if it's 1-2 days away
+            let is1to2Days = false;
+            const daysMatch = realtimeCountdown.match(/(\d+(?:\s*½)?)\s+days?/);
+            if (daysMatch) {
+              const daysStr = daysMatch[1];
+              let days: number;
+              
+              if (daysStr.includes('½')) {
+                const wholeDays = parseInt(daysStr.split(' ')[0]) || 0;
+                days = wholeDays + 0.5;
+              } else {
+                days = parseFloat(daysStr);
+              }
+              
+              is1to2Days = days >= 1 && days < 2.5;
+            }
             
             // Extract event time from ISO string
             const getEventTime = (bookmark: BookmarkEvent): string => {
@@ -474,8 +493,10 @@ export const KeyEventsSection = ({ refreshTrigger, onBookmarkDeleted }: KeyEvent
               className={cn(
                 "grid grid-cols-12 gap-3 items-center p-3 rounded border transition-colors",
                 isToday 
-                  ? "bg-purple-50 border-purple-200 hover:bg-purple-100"
-                  : "bg-blue-50 border-blue-200 hover:bg-blue-100"
+                  ? "bg-red-50 border-red-200 hover:bg-red-100"
+                  : is1to2Days
+                  ? "bg-orange-50 border-orange-200 hover:bg-orange-100"
+                  : "bg-transparent border-gray-200 hover:bg-gray-50"
               )}
             >
               {/* Date */}

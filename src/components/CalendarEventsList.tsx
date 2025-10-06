@@ -657,7 +657,7 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
                           : isPastEvent 
                           ? "border-gray-200 bg-gray-50" 
                           : "bg-white border-blue-200 hover:border-blue-300 hover:shadow-md",
-                        isOngoing && "ongoing-event"
+                        isOngoing && !event.all_day && "ongoing-event"
                       )}
                     >
                     <div className="flex items-center gap-3">
@@ -701,7 +701,13 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
                       <div className="flex-1">
                         <div className={cn(
                           "text-lg font-semibold",
-                          isPastEvent ? "text-gray-500 line-through" : isOngoing ? "text-red-600 font-bold" : "text-gray-900"
+                          isPastEvent 
+                            ? "text-gray-500 line-through" 
+                            : isOngoing && !event.all_day
+                            ? "text-red-600 font-bold" 
+                            : event.all_day 
+                            ? "text-gray-500"
+                            : "text-gray-900"
                         )}>
                           {event.title}
                         </div>
@@ -1071,7 +1077,7 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
                       isPastEvent && "opacity-60",
                       event.all_day && !isBookmarked && "bg-indigo-50 border-l-4 border-indigo-300",
                       isNextEvent && "ring-2 ring-red-200 border-red-300",
-                      isOngoing && "ongoing-event"
+                      isOngoing && !event.all_day && "ongoing-event"
                     )}
                   >
                     {/* Mobile Header Row */}
@@ -1106,11 +1112,12 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
                         "text-sm font-medium break-words leading-tight flex items-center gap-2",
                         isPastEvent && "line-through",
                         isNextEvent && "font-bold text-red-600",
-                        isOngoing && !isNextEvent && "font-bold text-red-600"
+                        isOngoing && !isNextEvent && !event.all_day && "font-bold text-red-600"
                       )}>
                         <span className={cn(
                           "text-productivity-text-primary",
-                          isOngoing && "text-red-600"
+                          isOngoing && !event.all_day && "text-red-600",
+                          event.all_day && "text-gray-500"
                         )}>
                           {event.title}
                         </span>
@@ -1244,7 +1251,7 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
                         : isEven ? "bg-productivity-surface" : "bg-table-row-even",
                       isPastEvent && "opacity-60",
                       event.all_day && !isBookmarked && "bg-indigo-50 border-l-4 border-indigo-300",
-                      isOngoing && "ongoing-event"
+                      isOngoing && !event.all_day && "ongoing-event"
                     )}
                   >
                   <div className="grid grid-cols-12 gap-1 items-center">
@@ -1317,7 +1324,8 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
                       "text-productivity-text-primary text-xs break-words leading-tight",
                       isPastEvent && "line-through",
                       isNextEvent && "font-bold",
-                      isOngoing && !isNextEvent && "font-bold text-red-600"
+                      isOngoing && !isNextEvent && !event.all_day && "font-bold text-red-600",
+                      event.all_day && "text-gray-500"
                     )}>
                       {event.title}
                     </span>
