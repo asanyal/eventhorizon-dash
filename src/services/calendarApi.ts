@@ -1,5 +1,6 @@
 import { ApiEvent, CalendarEvent } from '../types/calendar';
 import { API_CONFIG, API_ENDPOINTS } from '../config/api';
+import { Temporal } from '@js-temporal/polyfill';
 
 export interface GetEventsParams {
   start: string; // YYYY-MM-DD format
@@ -59,9 +60,9 @@ export const transformApiEvent = (apiEvent: ApiEvent, index: number): CalendarEv
   }
   
   // Parse date and time for regular events
-  // API returns PST times, so we need to parse them as PST and convert to local timezone
+  // API always returns PST times - create datetime object with forced PST timezone
   const [month, day] = apiEvent.date.split(' ');
-  const monthNum = new Date(`${month} 1, ${currentYear}`).getMonth();
+  const monthNum = new Date(`${month} 1, ${currentYear}`).getMonth() + 1; // Temporal uses 1-based months
   const dayNum = parseInt(day);
   
   // Parse the time
@@ -75,19 +76,17 @@ export const transformApiEvent = (apiEvent: ApiEvent, index: number): CalendarEv
     adjustedHours = 0;
   }
   
-  // Create PST date object (PST is UTC-8)
-  const pstDate = new Date(currentYear, monthNum, dayNum, adjustedHours, minutes, 0, 0);
+  // Create ZonedDateTime with forced PST timezone using ISO string format
+  const isoString = `${currentYear}-${String(monthNum).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}T${String(adjustedHours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00[America/Los_Angeles]`;
+  const pstZoned = Temporal.ZonedDateTime.from(isoString);
   
-  // Convert PST to UTC by adding 8 hours (PST is UTC-8, so to get UTC we add 8)
-  const utcDate = new Date(pstDate.getTime() + (8 * 60 * 60 * 1000));
-  
-  // The Date object will automatically display in local timezone when used
-  // So utcDate represents the correct local time equivalent of the PST time
+  // Convert to JavaScript Date object - browser will display in system timezone
+  const eventDate = new Date(pstZoned.epochMilliseconds);
   
   return {
     id: `api-event-${index}`,
     title: apiEvent.event,
-    startTime: utcDate,
+    startTime: eventDate,
     duration: apiEvent.duration_minutes,
     attendees: apiEvent.attendees,
     organizerEmail: apiEvent.organizer_email,

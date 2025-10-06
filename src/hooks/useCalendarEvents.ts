@@ -57,10 +57,19 @@ export const useCalendarEvents = (timeFilter: TimeFilter, specificDate?: string)
         endStr = addDays(todayStr, 3);
         break;
       case 'this-week':
-        startStr = todayStr; // Start from today, not beginning of week
         const todayDate = new Date(todayStr + 'T00:00:00');
-        const daysUntilSunday = todayDate.getDay() === 0 ? 0 : (7 - todayDate.getDay());
-        endStr = addDays(todayStr, daysUntilSunday);
+        const dayOfWeek = todayDate.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+        
+        if (dayOfWeek === 0) {
+          // If it's Sunday, show Monday-Friday of the upcoming week
+          startStr = addDays(todayStr, 1); // Monday
+          endStr = addDays(todayStr, 5);   // Friday
+        } else {
+          // For other days, show from today until end of the week (Sunday)
+          startStr = todayStr;
+          const daysUntilSunday = 7 - dayOfWeek;
+          endStr = addDays(todayStr, daysUntilSunday);
+        }
         break;
       case 'next-week':
         // Calculate Monday of next week

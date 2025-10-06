@@ -121,6 +121,76 @@ const formatFreeTimeDuration = (minutes: number): string => {
   }
 };
 
+// Helper function to format selected date or date range for display
+const formatDateRangeDisplay = (timeFilter: TimeFilter, selectedDate?: string): string => {
+  if (selectedDate) {
+    // Date picker selection - format as "Mon, Oct 5"
+    const date = new Date(selectedDate + 'T00:00:00');
+    return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+  
+  // Calculate date ranges for chip selections
+  const now = new Date();
+  const formatDate = (date: Date) => date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const formatDateWithDay = (date: Date) => date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  
+  switch (timeFilter) {
+    case 'today':
+      return formatDateWithDay(now);
+    case 'tomorrow': {
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      return formatDateWithDay(tomorrow);
+    }
+    case 'day-after': {
+      const dayAfter = new Date(now);
+      dayAfter.setDate(dayAfter.getDate() + 2);
+      return formatDateWithDay(dayAfter);
+    }
+    case '2-days-after': {
+      const twoDaysAfter = new Date(now);
+      twoDaysAfter.setDate(twoDaysAfter.getDate() + 3);
+      return formatDateWithDay(twoDaysAfter);
+    }
+    case 'this-week': {
+      const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+      
+      if (dayOfWeek === 0) {
+        // If it's Sunday, show Monday-Friday of the upcoming week
+        const monday = new Date(now);
+        monday.setDate(monday.getDate() + 1);
+        const friday = new Date(now);
+        friday.setDate(friday.getDate() + 5);
+        return `${formatDate(monday)} - ${formatDate(friday)}`;
+      } else {
+        // For other days, show from today until end of the week (Sunday)
+        const endOfWeek = new Date(now);
+        endOfWeek.setDate(endOfWeek.getDate() + (7 - dayOfWeek));
+        return `${formatDate(now)} - ${formatDate(endOfWeek)}`;
+      }
+    }
+    case 'next-week': {
+      const nextWeekStart = new Date(now);
+      nextWeekStart.setDate(nextWeekStart.getDate() + (7 - now.getDay()));
+      const nextWeekEnd = new Date(nextWeekStart);
+      nextWeekEnd.setDate(nextWeekEnd.getDate() + 6);
+      return `${formatDate(nextWeekStart)} - ${formatDate(nextWeekEnd)}`;
+    }
+    case 'this-month': {
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      return `${formatDate(startOfMonth)} - ${formatDate(endOfMonth)}`;
+    }
+    case 'next-month': {
+      const startOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      const endOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 2, 0);
+      return `${formatDate(startOfNextMonth)} - ${formatDate(endOfNextMonth)}`;
+    }
+    default:
+      return '';
+  }
+};
+
 // Calculate free time between events
 interface FreeTimeBlock {
   duration: string;
@@ -137,21 +207,22 @@ const calculateBeforeFirstFreeTime = (
   const now = new Date();
   const currentStartConverted = convertTime(firstEvent.startTime);
   
-  // Define day boundaries in user's timezone
+  // Define day boundaries in system timezone (events are already in system timezone)
   const dayStart = new Date(currentStartConverted);
   dayStart.setHours(6, 30, 0, 0);
   
   if (currentStartConverted.getTime() > dayStart.getTime()) {
     const gapMinutes = Math.floor((currentStartConverted.getTime() - dayStart.getTime()) / (1000 * 60));
     
-    if (gapMinutes >= 75 && now.getTime() < currentStartConverted.getTime()) {
+    // Show ribbon if gap >= 75 minutes, regardless of current time
+    if (gapMinutes >= 75) {
       const logKey = `before-${firstEvent.id}`;
       if (loggedSet && !loggedSet.has(logKey)) {
         console.log(`###Atin Free time detected BEFORE FIRST event - Gap: ${gapMinutes} min, Next: "${firstEvent.title}"`);
         loggedSet.add(logKey);
       }
       
-      // Check if we're in the free time period
+      // Check if we're currently in the free time period to show remaining time
       if (now.getTime() >= dayStart.getTime() && now.getTime() < currentStartConverted.getTime()) {
         const remainingMinutes = Math.floor((currentStartConverted.getTime() - now.getTime()) / (1000 * 60));
         const totalDuration = formatFreeTimeDuration(gapMinutes);
@@ -185,7 +256,7 @@ const calculateFreeTime = (
   const now = new Date();
   console.log(`###Atin calculateFreeTime called for "${currentEvent.title}", isLast: ${isLastOfDay}, nextEvent: ${nextEvent?.title || 'none'}`);
   
-  // Convert times to user's timezone for display
+  // Convert times to system timezone for display
   const currentStartConverted = convertTime(currentEvent.startTime);
   const currentEndTime = new Date(currentEvent.startTime.getTime() + currentEvent.duration * 60 * 1000);
   const currentEndConverted = convertTime(currentEndTime);
@@ -195,12 +266,7 @@ const calculateFreeTime = (
     return { duration: '', show: false, type: 'between' };
   }
   
-  // IMPORTANT: If the current event hasn't ended yet, don't show any free time after it
-  if (now.getTime() < currentEndConverted.getTime()) {
-    return { duration: '', show: false, type: 'between' };
-  }
-  
-  // Define day boundaries in user's timezone
+  // Define day boundaries in system timezone (events are already in system timezone)
   const dayEnd = new Date(currentStartConverted);
   dayEnd.setHours(19, 30, 0, 0);
   
@@ -218,14 +284,15 @@ const calculateFreeTime = (
         
         console.log(`###Atin Next event is all-day or after 7:30 PM, capping - gapMinutes: ${gapMinutes}, Prev: "${currentEvent.title}"`);
         
-        if (gapMinutes >= 75 && now.getTime() < freeTimeEnd.getTime() && currentEndConverted.getTime() < freeTimeEnd.getTime()) {
+        // Show ribbon if gap >= 75 minutes, regardless of current time
+        if (gapMinutes >= 75 && currentEndConverted.getTime() < freeTimeEnd.getTime()) {
           const logKey = `between-capped-${currentEvent.id}`;
           if (loggedSet && !loggedSet.has(logKey)) {
             console.log(`###Atin Free time detected (capped) - Gap: ${gapMinutes} min, Prev: "${currentEvent.title}"`);
             loggedSet.add(logKey);
           }
           
-          // Check if we're in the free time period
+          // Check if we're currently in the free time period to show remaining time
           if (now.getTime() >= currentEndConverted.getTime() && now.getTime() < freeTimeEnd.getTime()) {
             const remainingMinutes = Math.floor((freeTimeEnd.getTime() - now.getTime()) / (1000 * 60));
             const totalDuration = formatFreeTimeDuration(gapMinutes);
@@ -250,14 +317,15 @@ const calculateFreeTime = (
         
         console.log(`###Atin Between meetings - gapMinutes: ${gapMinutes}, Prev: "${currentEvent.title}", Next: "${nextEvent.title}"`);
         
-        if (gapMinutes >= 75 && now.getTime() < freeTimeEnd.getTime()) {
+        // Show ribbon if gap >= 75 minutes, regardless of current time
+        if (gapMinutes >= 75) {
           const logKey = `between-${currentEvent.id}-${nextEvent.id}`;
           if (loggedSet && !loggedSet.has(logKey)) {
             console.log(`###Atin Free time detected - Gap: ${gapMinutes} min, Prev: "${currentEvent.title}", Next: "${nextEvent.title}"`);
             loggedSet.add(logKey);
           }
           
-          // Check if we're in the free time period
+          // Check if we're currently in the free time period to show remaining time
           if (now.getTime() >= currentEndConverted.getTime() && now.getTime() < freeTimeEnd.getTime()) {
             const remainingMinutes = Math.floor((freeTimeEnd.getTime() - now.getTime()) / (1000 * 60));
             const totalDuration = formatFreeTimeDuration(gapMinutes);
@@ -285,16 +353,17 @@ const calculateFreeTime = (
   
   if (isEffectivelyLastEvent && currentEndConverted.getTime() < dayEnd.getTime()) {
     const gapMinutes = Math.floor((dayEnd.getTime() - currentEndConverted.getTime()) / (1000 * 60));
-    console.log(`###Atin AFTER LAST event - gapMinutes: ${gapMinutes}, Prev: "${currentEvent.title}", isLastOfDay: ${isLastOfDay}, isEffectivelyLast: ${isEffectivelyLastEvent}, now < dayEnd: ${now.getTime() < dayEnd.getTime()}`);
+    console.log(`###Atin AFTER LAST event - gapMinutes: ${gapMinutes}, Prev: "${currentEvent.title}", isLastOfDay: ${isLastOfDay}, isEffectivelyLast: ${isEffectivelyLastEvent}`);
     
-    if (gapMinutes >= 75 && now.getTime() < dayEnd.getTime()) {
+    // Show ribbon if gap >= 75 minutes, regardless of current time
+    if (gapMinutes >= 75) {
       const logKey = `after-${currentEvent.id}`;
       if (loggedSet && !loggedSet.has(logKey)) {
         console.log(`###Atin Free time detected AFTER LAST event - Gap: ${gapMinutes} min, Prev: "${currentEvent.title}"`);
         loggedSet.add(logKey);
       }
       
-      // Check if we're in the free time period
+      // Check if we're currently in the free time period to show remaining time
       if (now.getTime() >= currentEndConverted.getTime() && now.getTime() < dayEnd.getTime()) {
         const remainingMinutes = Math.floor((dayEnd.getTime() - now.getTime()) / (1000 * 60));
         const totalDuration = formatFreeTimeDuration(gapMinutes);
@@ -458,27 +527,37 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
   if (isSimpleView) {
     return (
       <div className="space-y-4">
-        {/* Search Bar */}
-        {events.length > 0 && !loading && (
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <input
-              type="text"
-              placeholder="Search events, attendees, dates..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
+        {/* Sticky Header: Date Display and Search Bar */}
+        <div className="sticky top-0 z-10 bg-white pb-4 space-y-4">
+          {/* Selected Date Display */}
+          <div className="bg-blue-50 border-l-4 border-blue-400 px-4 py-2 rounded-r-lg">
+            <div className="text-sm font-medium text-blue-900">
+              📅 {formatDateRangeDisplay(timeFilter, selectedDate)}
+            </div>
           </div>
-        )}
+
+          {/* Search Bar */}
+          {events.length > 0 && !loading && (
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <input
+                type="text"
+                placeholder="Search events, attendees, dates..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          )}
+        </div>
 
 
         {/* Simple View - Events List */}
@@ -561,8 +640,8 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
                     {/* Free Time Ribbon - Before First Event */}
                     {beforeFirstFreeTime.show && (
                       <div className="mb-3">
-                        <div className="bg-green-100 border-l-4 border-green-400 px-3 py-1 rounded-r-md">
-                          <div className="text-sm font-medium text-green-800">
+                        <div className="bg-emerald-50 border-l-4 border-emerald-300 px-3 py-1 rounded-r-md">
+                          <div className="text-sm font-medium text-emerald-700">
                             {beforeFirstFreeTime.duration}
                           </div>
                         </div>
@@ -651,8 +730,16 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
                     {/* Free Time Ribbon - Between/After Events */}
                     {freeTime.show && (freeTime.type === 'between' || freeTime.type === 'after-last') && (
                       <div className="mt-3">
-                        <div className="bg-green-100 border-l-4 border-green-400 px-3 py-1 rounded-r-md">
-                          <div className="text-sm font-medium text-green-800">
+                        <div className={cn(
+                          "border-l-4 px-3 py-1 rounded-r-md",
+                          freeTime.type === 'between' 
+                            ? "bg-emerald-50 border-emerald-300"
+                            : "bg-green-200 border-green-500"
+                        )}>
+                          <div className={cn(
+                            "text-sm font-medium",
+                            freeTime.type === 'between' ? "text-green-900" : "text-emerald-700"
+                          )}>
                             {freeTime.duration}
                           </div>
                         </div>
@@ -670,27 +757,37 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
 
   return (
     <div className="space-y-4">
-      {/* Search Bar */}
-      {events.length > 0 && !loading && (
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-          <input
-            type="text"
-            placeholder="Search events, attendees, dates..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
+      {/* Sticky Header: Date Display and Search Bar */}
+      <div className="sticky top-0 z-10 bg-white pb-4 space-y-4">
+        {/* Selected Date Display */}
+        <div className="bg-blue-50 border-l-4 border-blue-400 px-4 py-2 rounded-r-lg">
+          <div className="text-sm font-medium text-blue-900">
+            📅 {formatDateRangeDisplay(timeFilter, selectedDate)}
+          </div>
         </div>
-      )}
+
+        {/* Search Bar */}
+        {events.length > 0 && !loading && (
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Search events, attendees, dates..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Summary Section */}
       {searchFilteredEvents.length > 0 && !loading && (
@@ -943,8 +1040,8 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
               <div key={event.id}>
                 {/* Free Time Ribbon - Before First Event (Desktop) */}
                 {beforeFirstFreeTime.show && !isMobile && (
-                  <div className="px-3 py-1 bg-green-100 border-l-4 border-green-400">
-                    <div className="text-xs font-medium text-green-800">
+                  <div className="px-3 py-1 bg-emerald-50 border-l-4 border-emerald-300">
+                    <div className="text-xs font-medium text-emerald-700">
                       {beforeFirstFreeTime.duration}
                     </div>
                   </div>
@@ -956,8 +1053,8 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
                     {/* Free Time Ribbon - Before First Event (Mobile) */}
                     {beforeFirstFreeTime.show && (
                       <div className="mb-3">
-                        <div className="bg-green-100 border-l-4 border-green-400 px-3 py-1 rounded-r-md">
-                          <div className="text-xs font-medium text-green-800">
+                        <div className="bg-emerald-50 border-l-4 border-emerald-300 px-3 py-1 rounded-r-md">
+                          <div className="text-xs font-medium text-emerald-700">
                             {beforeFirstFreeTime.duration}
                           </div>
                         </div>
@@ -1121,8 +1218,16 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
                     {/* Free Time Ribbon - Between/After Events (Mobile) */}
                     {freeTime.show && (freeTime.type === 'between' || freeTime.type === 'after-last') && (
                       <div className="mt-3">
-                        <div className="bg-green-100 border-l-4 border-green-400 px-3 py-1 rounded-r-md">
-                          <div className="text-xs font-medium text-green-800">
+                        <div className={cn(
+                          "border-l-4 px-3 py-1 rounded-r-md",
+                          freeTime.type === 'between' 
+                            ? "bg-green-200 border-green-500"
+                            : "bg-emerald-50 border-emerald-300"
+                        )}>
+                          <div className={cn(
+                            "text-xs font-medium",
+                            freeTime.type === 'between' ? "text-green-900" : "text-emerald-700"
+                          )}>
                             {freeTime.duration}
                           </div>
                         </div>
@@ -1323,8 +1428,16 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
                 
                 {/* Free Time Ribbon - Between/After Events (Desktop) */}
                 {freeTime.show && (freeTime.type === 'between' || freeTime.type === 'after-last') && !isMobile && (
-                  <div className="px-3 py-1 bg-green-100 border-l-4 border-green-400">
-                    <div className="text-xs font-medium text-green-800">
+                  <div className={cn(
+                    "px-3 py-1 border-l-4",
+                    freeTime.type === 'between' 
+                      ? "bg-green-200 border-green-500"
+                      : "bg-emerald-50 border-emerald-300"
+                  )}>
+                    <div className={cn(
+                      "text-xs font-medium",
+                      freeTime.type === 'between' ? "text-green-900" : "text-emerald-700"
+                    )}>
                       {freeTime.duration}
                     </div>
                   </div>

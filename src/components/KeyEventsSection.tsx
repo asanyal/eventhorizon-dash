@@ -301,17 +301,70 @@ export const KeyEventsSection = ({ refreshTrigger, onBookmarkDeleted }: KeyEvent
                     {/* Interval Cell */}
                     <div className="flex-shrink-0 w-[10%] min-w-[80px]">
                       {(() => {
-                        const isUrgent = realtimeCountdown.includes('m') || realtimeCountdown.includes('hour');
-                        const isSoon = realtimeCountdown.includes('day') && !realtimeCountdown.includes('days');
+                        // Apply consistent color scheme
+                        const isPast = realtimeCountdown.includes('ago');
+                        const isMinutes = realtimeCountdown.includes('m') && !realtimeCountdown.includes('min');
+                        const isHours = realtimeCountdown.includes('hour');
+                        const isDays = realtimeCountdown.includes('day');
+                        
+                        let bgColor = 'bg-gray-50';
+                        let borderColor = 'border-gray-300';
+                        let textColor = 'text-gray-700';
+                        
+                        if (isPast) {
+                          // Past - Grey
+                          bgColor = 'bg-gray-100';
+                          borderColor = 'border-gray-400';
+                          textColor = 'text-gray-600';
+                        } else if (isMinutes) {
+                          // Minutes - RED (most urgent)
+                          bgColor = 'bg-red-100';
+                          borderColor = 'border-red-400';
+                          textColor = 'text-red-800';
+                        } else if (isHours) {
+                          // Hours (< 1 day) - ORANGE (urgent)
+                          bgColor = 'bg-orange-100';
+                          borderColor = 'border-orange-400';
+                          textColor = 'text-orange-800';
+                        } else if (isDays) {
+                          // Parse days to determine color
+                          const daysMatch = realtimeCountdown.match(/(\d+(?:\s*½)?)\s+days?/);
+                          if (daysMatch) {
+                            const daysStr = daysMatch[1];
+                            let days: number;
+                            
+                            if (daysStr.includes('½')) {
+                              const wholeDays = parseInt(daysStr.split(' ')[0]) || 0;
+                              days = wholeDays + 0.5;
+                            } else {
+                              days = parseFloat(daysStr);
+                            }
+                            
+                            if (days < 2) {
+                              // < 2 days - ORANGE
+                              bgColor = 'bg-orange-100';
+                              borderColor = 'border-orange-400';
+                              textColor = 'text-orange-800';
+                            } else if (days <= 3.5) {
+                              // 2-3.5 days - PURPLE
+                              bgColor = 'bg-purple-100';
+                              borderColor = 'border-purple-400';
+                              textColor = 'text-purple-800';
+                            } else {
+                              // Over 3.5 days - GREEN
+                              bgColor = 'bg-green-100';
+                              borderColor = 'border-green-400';
+                              textColor = 'text-green-800';
+                            }
+                          }
+                        }
                         
                         return (
                           <div className={cn(
                             "rounded-lg p-2 border-l-4 text-center",
-                            isUrgent 
-                              ? "bg-red-100 border-red-400 text-red-800" 
-                              : isSoon
-                              ? "bg-orange-100 border-orange-400 text-orange-800"
-                              : "bg-orange-50 border-orange-300 text-orange-700"
+                            bgColor,
+                            borderColor,
+                            textColor
                           )}>
                             <div className="text-base font-bold">
                               {realtimeCountdown.replace('In ', '')}

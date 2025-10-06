@@ -86,37 +86,47 @@ export const getTimeUntilEvent = (eventDate: Date): string => {
 
 // Helper function to get the color class for interval text based on new rules
 export const getIntervalColor = (intervalText: string): string => {
-  if (intervalText.includes('ago') || intervalText.includes('All Day')) {
-    return ''; // No special color for past events or all-day events
+  // Past events - Grey
+  if (intervalText.includes('ago')) {
+    return 'text-gray-500';
   }
   
-  if (intervalText.includes('m')) {
-    // Minutes - no specific color mentioned, keeping default
+  // All Day events - no color
+  if (intervalText.includes('All Day')) {
     return '';
   }
   
-  if (intervalText.includes('hours')) {
-    const hoursMatch = intervalText.match(/(\d+(?:\.\d+)?)\s+hours/);
-    if (hoursMatch) {
-      const hours = parseFloat(hoursMatch[1]);
-      if (hours < 12) {
-        return 'text-red-500'; // Less than 12 hours - red
-      } else {
-        return 'text-orange-500'; // 12+ hours - orange
-      }
-    }
+  // Minutes - RED (most urgent)
+  if (intervalText.includes('m') && !intervalText.includes('min')) {
+    return 'text-red-500';
   }
   
-  if (intervalText.includes('days')) {
-    const daysMatch = intervalText.match(/(\d+(?:\.\d+)?)\s+days/);
+  // Hours (< 1 day) - ORANGE (urgent)
+  if (intervalText.includes('hour')) {
+    return 'text-orange-500';
+  }
+  
+  // Days
+  if (intervalText.includes('day')) {
+    const daysMatch = intervalText.match(/(\d+(?:\s*½)?)\s+days?/);
     if (daysMatch) {
-      const days = parseFloat(daysMatch[1]);
-      if (days === 1.5) {
-        return 'text-orange-500'; // 1.5 days - orange
-      } else if (days >= 2 && days <= 3) {
-        return 'text-purple-500'; // 2-3 days - purple
-      } else if (days >= 3.5) {
-        return 'text-gray-500'; // 3.5+ days - gray
+      const daysStr = daysMatch[1];
+      let days: number;
+      
+      // Handle "1 ½" format
+      if (daysStr.includes('½')) {
+        const wholeDays = parseInt(daysStr.split(' ')[0]) || 0;
+        days = wholeDays + 0.5;
+      } else {
+        days = parseFloat(daysStr);
+      }
+      
+      if (days < 2) {
+        return 'text-orange-500'; // < 2 days (1, 1.5 days) - ORANGE
+      } else if (days <= 3.5) {
+        return 'text-purple-500'; // 2-3.5 days - PURPLE
+      } else {
+        return 'text-green-500'; // Over 3.5 days - GREEN
       }
     }
   }
