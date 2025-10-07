@@ -11,7 +11,7 @@ export interface HorizonItem {
 
 export interface CreateHorizonRequest {
   title: string;
-  details: string;
+  details?: string;
   type?: HorizonType;
   horizon_date?: string | null;
 }
@@ -19,7 +19,7 @@ export interface CreateHorizonRequest {
 export interface EditHorizonRequest {
   existing_title: string;
   new_title: string;
-  new_details: string;
+  new_details?: string;
   new_type?: HorizonType;
   new_horizon_date?: string | null;
 }

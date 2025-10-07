@@ -421,7 +421,7 @@ export const HorizonSection = () => {
           </h3>
           {/* Horizon count badge */}
           {!loading && (
-            <div className="px-2 py-1 bg-orange-100 text-orange-700 text-xs font-medium rounded-full border border-orange-200">
+            <div className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full border border-blue-200">
               {filteredHorizons.length}
             </div>
           )}
@@ -503,9 +503,10 @@ export const HorizonSection = () => {
                       className={cn(
                         "px-3 py-1 text-sm font-medium rounded-full transition-colors",
                         selectedType === 'Event'
-                          ? "bg-orange-500 text-white"
+                          ? "text-white"
                           : "bg-gray-200 text-gray-600 hover:bg-gray-300"
                       )}
+                      style={selectedType === 'Event' ? { backgroundColor: '#3B82F6' } : undefined}
                       disabled={loading}
                     >
                       Event
@@ -529,7 +530,7 @@ export const HorizonSection = () => {
                       className={cn(
                         "px-3 py-1 text-sm font-medium rounded-full transition-colors",
                         selectedType === 'OnMyMind'
-                          ? "bg-emerald-300 text-white"
+                          ? "bg-yellow-400 text-yellow-900"
                           : "bg-gray-200 text-gray-600 hover:bg-gray-300"
                       )}
                       disabled={loading}
@@ -575,9 +576,10 @@ export const HorizonSection = () => {
                 className={cn(
                   "px-3 py-1 text-xs font-medium rounded-full transition-colors",
                   selectedFilters.has('Event')
-                    ? "bg-orange-500 text-white"
+                    ? "text-white"
                     : "bg-gray-200 text-gray-600 hover:bg-gray-300"
                 )}
+                style={selectedFilters.has('Event') ? { backgroundColor: '#3B82F6' } : undefined}
               >
                 Events
               </button>
@@ -597,7 +599,7 @@ export const HorizonSection = () => {
                 className={cn(
                   "px-3 py-1 text-xs font-medium rounded-full transition-colors",
                   selectedFilters.has('Others')
-                    ? "bg-emerald-400 text-white"
+                    ? "bg-yellow-400 text-yellow-900"
                     : "bg-gray-200 text-gray-600 hover:bg-gray-300"
                 )}
               >
@@ -630,23 +632,27 @@ export const HorizonSection = () => {
                     className={cn(
                       "flex items-center p-2 rounded border border-border hover:bg-table-row-hover transition-colors",
                       horizon.type === 'Event' 
-                        ? "bg-orange-50 hover:bg-orange-100"
+                        ? "bg-blue-50 hover:bg-blue-100"
                         : horizon.type === 'Meeting'
                         ? "bg-purple-50 hover:bg-purple-100"
                         : horizon.type === 'OnMyMind'
-                        ? "bg-emerald-50 hover:bg-emerald-100"
+                        ? "bg-yellow-50 hover:bg-yellow-100"
                         : "bg-background"
                     )}
                   >
-                    {/* Left section with tight spacing - Date, Interval, Help, Title */}
+                    {/* Left section with tight spacing - Type, Interval, Help, Title */}
                     <div className="flex items-center gap-2 flex-1 min-w-0">
-                      {/* Date */}
-                      <div className="flex-shrink-0 text-sm text-productivity-text-tertiary w-16">
-                        {(() => {
-                          const validHorizonDate = horizon.horizon_date && horizon.horizon_date !== 'null' ? horizon.horizon_date : null;
-                          const dateToShow = validHorizonDate || horizon.created_at;
-                          return dateToShow ? formatDate(dateToShow, convertTime) : '';
-                        })()}
+                      {/* Type */}
+                      <div className="flex-shrink-0 w-20">
+                        {horizon.type === 'Event' ? (
+                          <span className="text-xs font-medium text-blue-600 bg-blue-100 px-2 py-1 rounded">Event</span>
+                        ) : horizon.type === 'Meeting' ? (
+                          <span className="text-xs font-medium text-purple-600 bg-purple-100 px-2 py-1 rounded">Meeting</span>
+                        ) : horizon.type === 'OnMyMind' ? (
+                          <span className="text-xs font-medium text-yellow-700 bg-yellow-100 px-2 py-1 rounded">On mind</span>
+                        ) : (
+                          <span className="text-xs font-medium text-gray-500">—</span>
+                        )}
                       </div>
 
                       {/* Days Until Date */}

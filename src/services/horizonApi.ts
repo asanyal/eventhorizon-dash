@@ -8,14 +8,41 @@ export class HorizonApiService {
     this.baseUrl = baseUrl;
   }
 
+  // Map frontend types to backend-expected values
+  private mapTypeToBackend(type: HorizonType): string {
+    if (type === null) return 'none';
+    // Map to backend-expected values (based on API requirements)
+    const typeMap: Record<string, string> = {
+      'Event': 'event',
+      'Meeting': 'meeting',
+      'OnMyMind': 'learning'  // Backend might expect 'learning' for OnMyMind type
+    };
+    return typeMap[type] || type.toLowerCase();
+  }
+
+  // Map backend types back to frontend-expected values
+  private mapTypeToFrontend(backendType: string | null | undefined): HorizonType {
+    if (!backendType || backendType === 'none') return null;
+    
+    // Map backend values to frontend types
+    const typeMap: Record<string, HorizonType> = {
+      'event': 'Event',
+      'meeting': 'Meeting',
+      'learning': 'OnMyMind',
+      'onmymind': 'OnMyMind'
+    };
+    
+    return typeMap[backendType.toLowerCase()] || null;
+  }
+
   async createHorizon(horizon: CreateHorizonRequest): Promise<HorizonItem> {
     try {
       // Build URL with type and horizon_date as query parameters
       const url = new URL(`${this.baseUrl}/add-horizon`);
       
-      // Convert type: null -> "none" for backend, keep other values as-is
+      // Convert type to backend format
       if (horizon.type !== undefined) {
-        const typeParam = horizon.type === null ? 'none' : horizon.type;
+        const typeParam = this.mapTypeToBackend(horizon.type);
         url.searchParams.append('type', typeParam);
       }
       
@@ -25,9 +52,10 @@ export class HorizonApiService {
       }
       
       // Request body without type and horizon_date (since they're now query params)
+      // Backend requires details to have at least 1 character, use space if empty
       const requestBody = {
         title: horizon.title,
-        details: horizon.details
+        details: horizon.details && horizon.details.trim() ? horizon.details : ' '
       };
       
       console.log('🚀 Making add-horizon API call');
@@ -62,7 +90,11 @@ export class HorizonApiService {
       const responseData = await response.json();
       console.log('✅ Successful response data:', responseData);
       
-      return responseData;
+      // Map backend type to frontend type
+      return {
+        ...responseData,
+        type: this.mapTypeToFrontend(responseData.type)
+      };
     } catch (error) {
       console.error('💥 Error creating horizon:', error);
       console.error('💥 Error details:', {
@@ -82,7 +114,13 @@ export class HorizonApiService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      return await response.json();
+      const horizons = await response.json();
+      
+      // Map backend types to frontend types
+      return horizons.map((horizon: any) => ({
+        ...horizon,
+        type: this.mapTypeToFrontend(horizon.type)
+      }));
     } catch (error) {
       console.error('Error fetching horizons:', error);
       throw error;
@@ -93,8 +131,10 @@ export class HorizonApiService {
     try {
       const requestBody = {
         ...editRequest,
+        // Backend requires new_details to have at least 1 character, use space if empty
+        new_details: editRequest.new_details && editRequest.new_details.trim() ? editRequest.new_details : ' ',
         ...(editRequest.new_type !== undefined && { 
-          new_type: editRequest.new_type === null ? 'none' : editRequest.new_type 
+          new_type: this.mapTypeToBackend(editRequest.new_type)
         }),
         ...(editRequest.new_horizon_date !== undefined && { 
           new_horizon_date: editRequest.new_horizon_date === null ? 'null' : editRequest.new_horizon_date 
@@ -128,7 +168,11 @@ export class HorizonApiService {
       const responseData = await response.json();
       console.log('✅ Edit successful response data:', responseData);
       
-      return responseData;
+      // Map backend type to frontend type
+      return {
+        ...responseData,
+        type: this.mapTypeToFrontend(responseData.type)
+      };
     } catch (error) {
       console.error('💥 Error editing horizon:', error);
       throw error;
