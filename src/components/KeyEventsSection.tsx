@@ -499,20 +499,20 @@ export const KeyEventsSection = ({ refreshTrigger, onBookmarkDeleted }: KeyEvent
                   : "bg-transparent border-gray-200 hover:bg-gray-50"
               )}
             >
-              {/* Date */}
-              <div className="col-span-2 text-sm text-productivity-text-tertiary font-medium">
-                <div>{bookmark.date}</div>
-                {eventTime && (
-                  <div className="text-xs text-productivity-text-secondary">{eventTime}</div>
-                )}
-              </div>
-
               {/* Time */}
               <div className={cn(
                 "col-span-2 text-sm font-mono font-medium",
                 getIntervalColor(realtimeCountdown) || "text-red-500"
               )}>
                 {realtimeCountdown}
+              </div>
+
+              {/* Date */}
+              <div className="col-span-2 text-sm text-productivity-text-tertiary font-medium">
+                <div>{bookmark.date}</div>
+                {eventTime && (
+                  <div className="text-xs text-productivity-text-secondary">{eventTime}</div>
+                )}
               </div>
 
               {/* Event Title */}
