@@ -349,8 +349,13 @@ const IndexContent = () => {
         {currentPage === 'calendar' ? (
           /* Calendar Page Content */
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-          {/* Left Column - Calendar Events */}
-          <div>
+          {/* Left Column - Key Events (Important events) and Calendar Events */}
+          <div className="space-y-4 md:space-y-6">
+            <KeyEventsSection
+              refreshTrigger={bookmarkRefreshTrigger}
+              onBookmarkDeleted={handleBookmarkCreated}
+            />
+
             {/* Calendar Events Container */}
             <div className="bg-productivity-surface rounded-lg border border-border max-h-[800px] overflow-hidden flex flex-col">
               {/* Title and Filter Controls */}
@@ -383,15 +388,15 @@ const IndexContent = () => {
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-2">
                   {/* Primary filters row */}
                   <div className="flex items-center gap-2 flex-1">
-                    <TimeFilterChips 
-                      value={timeFilter} 
+                    <TimeFilterChips
+                      value={timeFilter}
                       onChange={(value) => {
                         setTimeFilter(value);
                         setSelectedDate('');
                       }}
                       isDateSelected={!!selectedDate}
                     />
-                    
+
                     <input
                       type="date"
                       value={selectedDate}
@@ -414,7 +419,7 @@ const IndexContent = () => {
                       className="px-2 py-1 text-xs border border-border rounded bg-background text-productivity-text-primary focus:outline-none focus:ring-1 focus:ring-primary w-32 sm:w-28"
                       title="Select specific date"
                     />
-                    
+
                     {selectedDate && (
                       <Button
                         onClick={() => setSelectedDate('')}
@@ -427,7 +432,7 @@ const IndexContent = () => {
                       </Button>
                     )}
                   </div>
-                  
+
                   {/* Navigation buttons */}
                   <div className="flex items-center gap-2 justify-center sm:justify-start">
                     <Button
@@ -465,8 +470,8 @@ const IndexContent = () => {
 
               {/* Events List - Scrollable */}
               <div className="flex-1 overflow-y-auto px-4 pb-4">
-                <CalendarEventsList 
-                  events={events} 
+                <CalendarEventsList
+                  events={events}
                   timeFilter={timeFilter}
                   loading={loading}
                   onBookmarkCreated={handleBookmarkCreated}
@@ -475,20 +480,12 @@ const IndexContent = () => {
                 />
               </div>
             </div>
-            
-            {/* TODO Section - moved below Calendar Events */}
-            <div className="mt-4 md:mt-6">
-              <TodoSection />
-            </div>
           </div>
 
-          {/* Right Column - Key Events and Horizons */}
+          {/* Right Column - Horizons and TODO Section */}
           <div className="space-y-4 md:space-y-6">
-            <KeyEventsSection 
-              refreshTrigger={bookmarkRefreshTrigger} 
-              onBookmarkDeleted={handleBookmarkCreated}
-            />
             <HorizonSection />
+            <TodoSection />
           </div>
           </div>
         ) : currentPage === 'health' ? (
