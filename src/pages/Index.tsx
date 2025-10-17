@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { CalendarEventsList } from '../components/CalendarEventsList';
 import { TimeFilterChips } from '../components/TimeFilterChips';
 import { TodoSection } from '../components/TodoSection';
@@ -10,7 +11,7 @@ import { TimezoneProvider, useTimezone } from '../contexts/TimezoneContext';
 import { useCalendarEvents } from '../hooks/useCalendarEvents';
 import { TimeFilter, CalendarEvent } from '../types/calendar';
 import { getTimeUntilEvent } from '../utils/dateUtils';
-import { Calendar, RefreshCw, AlertCircle, ChevronLeft, ChevronRight, PartyPopper, Heart } from 'lucide-react';
+import { Calendar, RefreshCw, AlertCircle, ChevronLeft, ChevronRight, PartyPopper, Heart, Zap } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { bookmarkApiService } from '../services/bookmarkApi';
@@ -149,6 +150,7 @@ const IndexContent = () => {
   const [bookmarkedEvents, setBookmarkedEvents] = useState<BookmarkEvent[]>([]);
   const [currentPage, setCurrentPage] = useState<PageType>('calendar');
   const { convertTime } = useTimezone();
+  const navigate = useNavigate();
   
   console.log(`###Atin Index component - calling useCalendarEvents with timeFilter: ${timeFilter}, selectedDate: ${selectedDate || 'empty'}`);
   const { events, loading, error, refetch } = useCalendarEvents(timeFilter, selectedDate);
@@ -175,6 +177,19 @@ const IndexContent = () => {
 
     return () => clearInterval(timer);
   }, []);
+
+  // Keyboard shortcut for Prep view (Shift+P)
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.shiftKey && e.key === 'P') {
+        e.preventDefault();
+        navigate('/prep');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [navigate]);
 
   // Fetch bookmarked event titles when bookmarkRefreshTrigger changes
   useEffect(() => {
@@ -340,6 +355,14 @@ const IndexContent = () => {
                   <PartyPopper className="w-4 h-4" />
                   Vacation
                 </button>
+                <Link to="/prep">
+                  <button
+                    className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 text-productivity-text-secondary hover:text-productivity-text-primary hover:bg-background"
+                  >
+                    <Zap className="w-4 h-4" />
+                    Prep
+                  </button>
+                </Link>
               </div>
             </div>
           </div>
