@@ -8,6 +8,8 @@ import { KeyEventsSection } from '../components/KeyEventsSection';
 import { HolidaysSection } from '../components/HolidaysSection';
 import { TimezoneSelector } from '../components/TimezoneSelector';
 import { TimezoneProvider, useTimezone } from '../contexts/TimezoneContext';
+import { useFocusMode } from '../contexts/FocusModeContext';
+import { FocusView } from '../components/FocusView';
 import { useCalendarEvents } from '../hooks/useCalendarEvents';
 import { TimeFilter, CalendarEvent } from '../types/calendar';
 import { getTimeUntilEvent } from '../utils/dateUtils';
@@ -150,6 +152,7 @@ const IndexContent = () => {
   const [bookmarkedEvents, setBookmarkedEvents] = useState<BookmarkEvent[]>([]);
   const [currentPage, setCurrentPage] = useState<PageType>('calendar');
   const { convertTime } = useTimezone();
+  const { focusMode, setFocusMode } = useFocusMode();
   const navigate = useNavigate();
   
   console.log(`###Atin Index component - calling useCalendarEvents with timeFilter: ${timeFilter}, selectedDate: ${selectedDate || 'empty'}`);
@@ -178,18 +181,25 @@ const IndexContent = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // Keyboard shortcut for Prep view (Shift+P)
+  // Keyboard shortcuts (Alt+P for Prep, Alt+I for Important Events, Alt+H for Horizons+Todos)
+  // Using e.code for Mac compatibility (Alt key produces special characters)
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      if (e.shiftKey && e.key === 'P') {
+      if (e.altKey && e.code === 'KeyP') {
         e.preventDefault();
         navigate('/prep');
+      } else if (e.altKey && e.code === 'KeyI') {
+        e.preventDefault();
+        setFocusMode(focusMode === 'important' ? null : 'important');
+      } else if (e.altKey && e.code === 'KeyH') {
+        e.preventDefault();
+        setFocusMode(focusMode === 'horizons-todos' ? null : 'horizons-todos');
       }
     };
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [navigate]);
+  }, [navigate, setFocusMode, focusMode]);
 
   // Fetch bookmarked event titles when bookmarkRefreshTrigger changes
   useEffect(() => {
@@ -261,6 +271,31 @@ const IndexContent = () => {
     // Trigger refresh of KeyEventsSection
     setBookmarkRefreshTrigger(prev => prev + 1);
   };
+
+  // Render focus mode if active
+  if (focusMode === 'important') {
+    return (
+      <FocusView title="Important Events (Alt+I to exit)">
+        <div className="focus-mode-important">
+          <KeyEventsSection
+            refreshTrigger={bookmarkRefreshTrigger}
+            onBookmarkDeleted={handleBookmarkCreated}
+          />
+        </div>
+      </FocusView>
+    );
+  }
+
+  if (focusMode === 'horizons-todos') {
+    return (
+      <FocusView title="Horizons & To-Dos (Alt+H to exit)">
+        <div className="space-y-8 focus-mode-horizons-todos">
+          <HorizonSection />
+          <TodoSection />
+        </div>
+      </FocusView>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

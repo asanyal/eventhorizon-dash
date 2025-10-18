@@ -364,9 +364,9 @@ export const TodoSection = () => {
                         {/* Title */}
                         <div className="flex-1 min-w-0">
                           <div className={cn(
-                            "text-sm break-words leading-tight font-medium transition-colors",
-                            todo.priority === 'high' && todo.urgency === 'high' 
-                              ? "text-red-700 group-hover:text-red-800" 
+                            "todo-title text-sm break-words leading-tight font-medium transition-colors",
+                            todo.priority === 'high' && todo.urgency === 'high'
+                              ? "text-red-700 group-hover:text-red-800"
                               : (todo.priority === 'high' || todo.urgency === 'high')
                               ? "text-orange-700 group-hover:text-orange-800"
                               : "text-productivity-text-primary group-hover:text-slate-700"

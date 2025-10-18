@@ -376,7 +376,7 @@ export const KeyEventsSection = ({ refreshTrigger, onBookmarkDeleted }: KeyEvent
                     
                     {/* Event Title */}
                     <div className="flex-1">
-                      <div className="text-lg font-semibold text-gray-900">
+                      <div className="event-title text-lg font-semibold text-gray-900">
                         {bookmark.event_title}
                       </div>
                     </div>
@@ -517,7 +517,7 @@ export const KeyEventsSection = ({ refreshTrigger, onBookmarkDeleted }: KeyEvent
 
               {/* Event Title */}
               <div className="col-span-5 min-w-0">
-                <div className="text-productivity-text-primary text-sm font-medium break-words leading-tight">
+                <div className="event-title text-productivity-text-primary text-sm font-medium break-words leading-tight">
                   {bookmark.event_title}
                 </div>
               </div>

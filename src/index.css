@@ -129,3 +129,85 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+/* Focus Mode Styles - Enhanced for productivity and focus */
+@layer components {
+  /* Important Events Focus Mode */
+  .focus-mode-important {
+    @apply w-full;
+  }
+
+  /* Section title - Make it really big */
+  .focus-mode-important h3 {
+    @apply text-4xl md:text-5xl font-bold mb-8;
+  }
+
+  /* Event titles - Make them prominent and readable */
+  .focus-mode-important .event-title {
+    @apply text-xl md:text-2xl font-semibold;
+  }
+
+  /* Increase spacing and text size for all table cells */
+  .focus-mode-important > div > div {
+    @apply py-6 px-6;
+  }
+
+  /* Make countdown and other text larger */
+  .focus-mode-important .countdown {
+    @apply text-2xl md:text-3xl font-bold;
+  }
+
+  /* Make all grid items larger */
+  .focus-mode-important > div > div > div {
+    @apply text-xl md:text-2xl;
+  }
+
+  /* Horizons & Todos Focus Mode */
+  /* Section titles - Make them really big */
+  .focus-mode-horizons-todos h3 {
+    @apply text-4xl md:text-5xl font-bold mb-8;
+  }
+
+  /* Horizon titles - Make them prominent and readable */
+  .focus-mode-horizons-todos .horizon-title {
+    @apply text-xl md:text-2xl font-semibold;
+  }
+
+  /* Todo titles - Make them prominent and readable */
+  .focus-mode-horizons-todos .todo-title {
+    @apply text-xl md:text-2xl font-semibold;
+  }
+
+  /* Increase spacing for items */
+  .focus-mode-horizons-todos > div {
+    @apply py-6 px-6 mb-6;
+  }
+
+  .focus-mode-horizons-todos input[type="text"],
+  .focus-mode-horizons-todos textarea {
+    @apply text-lg md:text-xl p-4;
+  }
+
+  .focus-mode-horizons-todos button {
+    @apply text-lg md:text-xl px-6 py-3;
+  }
+
+  /* Custom scrollbar for focus mode */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 12px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: hsl(0 0% 10%);
+    border-radius: 6px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: hsl(0 0% 30%);
+    border-radius: 6px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: hsl(0 0% 40%);
+  }
+}

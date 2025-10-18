@@ -702,7 +702,7 @@ export const HorizonSection = () => {
 
                       {/* Title */}
                       <div className="flex-1 min-w-0">
-                        <div className="text-productivity-text-primary text-sm break-words leading-tight">
+                        <div className="horizon-title text-productivity-text-primary text-sm break-words leading-tight">
                           {horizon.title}
                         </div>
                       </div>
