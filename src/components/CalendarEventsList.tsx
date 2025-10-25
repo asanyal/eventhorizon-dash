@@ -430,6 +430,7 @@ const filterEventsBySearch = (events: CalendarEvent[], searchQuery: string, conv
 export const CalendarEventsList = ({ events, timeFilter, loading = false, onBookmarkCreated, selectedDate, bookmarkedEventTitles = [] }: CalendarEventsListProps) => {
   const [clickedChip, setClickedChip] = useState<string | null>(null);
   const [showPastEvents, setShowPastEvents] = useState(false);
+  const [showAllDayEvents, setShowAllDayEvents] = useState(false);
   const [pinnedTooltip, setPinnedTooltip] = useState<string | null>(null);
   const [meetingTypeFilter, setMeetingTypeFilter] = useState<'all' | 'internal' | 'external'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -575,7 +576,9 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
               const filteredEvents = searchFilteredEvents.filter(event => {
                 const eventEndTime = new Date(event.startTime.getTime() + event.duration * 60 * 1000);
                 const isPastEvent = eventEndTime.getTime() < new Date().getTime();
-                return showPastEvents || !isPastEvent;
+                const pastEventFilter = showPastEvents || !isPastEvent;
+                const allDayFilter = showAllDayEvents || !event.all_day;
+                return pastEventFilter && allDayFilter;
               });
               
               // Filter out all-day events for free time calculation
@@ -902,16 +905,39 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
             </div>
           </div>
           
-          {/* Show Past Events Toggle */}
-          <label className="flex items-center gap-2 text-xs text-productivity-text-secondary cursor-pointer">
-            <input
-              type="checkbox"
-              checked={showPastEvents}
-              onChange={(e) => setShowPastEvents(e.target.checked)}
-              className="w-3 h-3 text-primary bg-background border-border rounded focus:ring-primary focus:ring-1"
-            />
-            Show past events
-          </label>
+          {/* Show Past Events and All Day Toggles */}
+          <div className="flex items-center gap-4">
+            <label
+              className="flex items-center gap-2 text-xs text-productivity-text-secondary cursor-pointer"
+              onClick={(e) => {
+                e.preventDefault();
+                setShowPastEvents(!showPastEvents);
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={showPastEvents}
+                onChange={() => {}}
+                className="w-3 h-3 text-primary bg-background border-border rounded focus:ring-0 focus:outline-none pointer-events-none"
+              />
+              Show past events
+            </label>
+            <label
+              className="flex items-center gap-2 text-xs text-productivity-text-secondary cursor-pointer"
+              onClick={(e) => {
+                e.preventDefault();
+                setShowAllDayEvents(!showAllDayEvents);
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={showAllDayEvents}
+                onChange={() => {}}
+                className="w-3 h-3 text-primary bg-background border-border rounded focus:ring-0 focus:outline-none pointer-events-none"
+              />
+              All Day
+            </label>
+          </div>
         </div>
       )}
       
@@ -956,7 +982,8 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
               const eventEndTime = new Date(event.startTime.getTime() + event.duration * 60 * 1000);
               const isPastEvent = eventEndTime.getTime() < new Date().getTime();
               const pastEventFilter = showPastEvents || !isPastEvent;
-              
+              const allDayFilter = showAllDayEvents || !event.all_day;
+
               // Apply meeting type filter
               let meetingTypeFilterMatch = true;
               if (meetingTypeFilter === 'internal') {
@@ -964,8 +991,8 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
               } else if (meetingTypeFilter === 'external') {
                 meetingTypeFilterMatch = isExternalMeeting(event.attendees);
               }
-              
-              return pastEventFilter && meetingTypeFilterMatch;
+
+              return pastEventFilter && allDayFilter && meetingTypeFilterMatch;
             });
             
             // Filter out all-day events for free time calculation

@@ -380,11 +380,20 @@ export const HorizonSection = () => {
                     </div>
                     
                     {/* Date on Right Side */}
-                    {dateToShow && (
-                      <div className="flex-shrink-0 text-sm text-gray-600">
-                        {formatDate(dateToShow, convertTime)}
-                      </div>
-                    )}
+                    <div className={cn(
+                      "flex-shrink-0 text-sm",
+                      dateToShow
+                        ? "text-gray-600"
+                        : horizon.type === 'Event'
+                        ? "text-blue-400"
+                        : horizon.type === 'Meeting'
+                        ? "text-purple-400"
+                        : horizon.type === 'OnMyMind'
+                        ? "text-yellow-600"
+                        : "text-gray-400"
+                    )}>
+                      {dateToShow ? formatDate(dateToShow, convertTime) : 'No Date'}
+                    </div>
                     
                     <div className="flex items-center gap-2">
                       <button
@@ -656,10 +665,21 @@ export const HorizonSection = () => {
                       </div>
 
                       {/* Days Until Date */}
-                      <div className="flex-shrink-0 text-sm text-red-500 font-medium w-20">
-                        {horizon.horizon_date && horizon.horizon_date !== 'null' 
+                      <div className={cn(
+                        "flex-shrink-0 text-sm font-medium w-20",
+                        horizon.horizon_date && horizon.horizon_date !== 'null'
+                          ? "text-red-500"
+                          : horizon.type === 'Event'
+                          ? "text-blue-400"
+                          : horizon.type === 'Meeting'
+                          ? "text-purple-400"
+                          : horizon.type === 'OnMyMind'
+                          ? "text-yellow-600"
+                          : "text-gray-400"
+                      )}>
+                        {horizon.horizon_date && horizon.horizon_date !== 'null'
                           ? getDaysUntilEvent(horizon.horizon_date, convertTime)
-                          : ''
+                          : 'No Date'
                         }
                       </div>
 

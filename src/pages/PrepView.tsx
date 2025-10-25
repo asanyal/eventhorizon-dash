@@ -43,6 +43,9 @@ const isExternalEvent = (attendees: string[]): boolean => {
 const filterPrepEvents = (events: CalendarEvent[]): CalendarEvent[] => {
   const now = new Date();
 
+  // Blocklist - events that should NOT be shown
+  const blocklist = ['DNS - Focus Time'];
+
   // Exception list - events that should always be shown regardless of attendee count
   const exceptions = ['☀️🌻Burlingame Office Crew'];
 
@@ -50,6 +53,12 @@ const filterPrepEvents = (events: CalendarEvent[]): CalendarEvent[] => {
     // Only future events
     const eventTime = event.startTime instanceof Date ? event.startTime : new Date(event.startTime);
     if (eventTime.getTime() <= now.getTime()) {
+      return false;
+    }
+
+    // Check if event is in blocklist
+    const isBlocked = blocklist.some(blocked => event.title.includes(blocked));
+    if (isBlocked) {
       return false;
     }
 

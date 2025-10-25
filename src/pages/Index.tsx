@@ -93,21 +93,21 @@ const getOngoingMeetingInfo = (todayEvents: CalendarEvent[]): { title: string; t
 };
 
 // Helper function to get the next meeting info
-const getNextMeetingInfo = (todayEvents: CalendarEvent[], tomorrowEvents: CalendarEvent[], convertTime: (date: Date) => Date): { prefix: string; meetingDetails: string | null; suffix: string } => {
+const getNextMeetingInfo = (todayEvents: CalendarEvent[], tomorrowEvents: CalendarEvent[], convertTime: (date: Date) => Date): { prefix: string; meetingTitle: string | null; meetingTime: string | null; suffix: string } => {
   const now = new Date();
-  
+
   // Helper function to truncate title
   const truncateTitle = (title: string): string => {
     return title.length > 100 ? title.substring(0, 100) + "..." : title;
   };
-  
+
   // Find next meeting today (future events only, excluding all-day events)
   const futureTodayEvents = todayEvents.filter(event => {
     // Ensure startTime is a Date object
     const startTime = event.startTime instanceof Date ? event.startTime : new Date(event.startTime);
     return startTime.getTime() > now.getTime() && !event.all_day;
   });
-  
+
   if (futureTodayEvents.length > 0) {
     const nextEvent = futureTodayEvents[0]; // Events should be sorted by time
     const startTime = nextEvent.startTime instanceof Date ? nextEvent.startTime : new Date(nextEvent.startTime);
@@ -115,11 +115,12 @@ const getNextMeetingInfo = (todayEvents: CalendarEvent[], tomorrowEvents: Calend
     const truncatedTitle = truncateTitle(nextEvent.title);
     return {
       prefix: "Your next event is",
-      meetingDetails: `"${truncatedTitle}" ${timeUntil.toLowerCase()}`,
+      meetingTitle: `"${truncatedTitle}"`,
+      meetingTime: timeUntil.toLowerCase(),
       suffix: "."
     };
   }
-  
+
   // No more meetings today, check tomorrow's first meeting (excluding all-day events)
   const tomorrowTimedEvents = tomorrowEvents.filter(event => !event.all_day);
   if (tomorrowTimedEvents.length > 0) {
@@ -129,19 +130,22 @@ const getNextMeetingInfo = (todayEvents: CalendarEvent[], tomorrowEvents: Calend
     const truncatedTitle = truncateTitle(firstTomorrowEvent.title);
     return {
       prefix: "Your next event is",
-      meetingDetails: `"${truncatedTitle}" ${timeUntil.toLowerCase()}`,
+      meetingTitle: `"${truncatedTitle}"`,
+      meetingTime: timeUntil.toLowerCase(),
       suffix: "."
     };
   }
-  
+
   return {
     prefix: "No upcoming events found",
-    meetingDetails: null,
+    meetingTitle: null,
+    meetingTime: null,
     suffix: "."
   };
 };
 
 type PageType = 'calendar' | 'health' | 'holidays';
+type CalendarSubPage = 'events' | 'horizons';
 
 const IndexContent = () => {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('today');
@@ -151,6 +155,7 @@ const IndexContent = () => {
   const [bookmarkedEventTitles, setBookmarkedEventTitles] = useState<string[]>([]);
   const [bookmarkedEvents, setBookmarkedEvents] = useState<BookmarkEvent[]>([]);
   const [currentPage, setCurrentPage] = useState<PageType>('calendar');
+  const [calendarSubPage, setCalendarSubPage] = useState<CalendarSubPage>('events');
   const { convertTime } = useTimezone();
   const { focusMode, setFocusMode } = useFocusMode();
   const navigate = useNavigate();
@@ -340,9 +345,14 @@ const IndexContent = () => {
               return (
                 <span className="text-productivity-text-secondary">
                   {meetingInfo.prefix}
-                  {meetingInfo.meetingDetails && (
+                  {meetingInfo.meetingTitle && (
+                    <span className="ml-1 font-bold text-productivity-text-secondary">
+                      {meetingInfo.meetingTitle}
+                    </span>
+                  )}
+                  {meetingInfo.meetingTime && (
                     <span className="ml-1 px-2 py-1 md:px-3 md:py-1 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-lg shadow-sm hover:shadow-md transition-all duration-200 transform hover:scale-105 cursor-pointer text-xs md:text-sm">
-                      {meetingInfo.meetingDetails}
+                      {meetingInfo.meetingTime}
                     </span>
                   )}
                   <span className="text-productivity-text-secondary">{meetingInfo.suffix}</span>
@@ -403,149 +413,194 @@ const IndexContent = () => {
           </div>
         </div>
 
-        {/* Main Content */}
-        {currentPage === 'calendar' ? (
-          /* Calendar Page Content */
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-          {/* Left Column - Key Events (Important events) and Calendar Events */}
-          <div className="space-y-4 md:space-y-6">
-            <KeyEventsSection
-              refreshTrigger={bookmarkRefreshTrigger}
-              onBookmarkDeleted={handleBookmarkCreated}
-            />
-
-            {/* Calendar Events Container */}
-            <div className="bg-productivity-surface rounded-lg border border-border max-h-[800px] overflow-hidden flex flex-col">
-              {/* Title and Filter Controls */}
-              <div className="p-4 pb-0 flex-shrink-0">
-                {/* Events Title */}
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <h3 className="text-lg font-semibold text-productivity-text-primary flex items-center gap-2">
-                      <Calendar className="w-5 h-5 text-green-500" />
-                      Events
-                    </h3>
-                    {/* Event count badge */}
-                    {!loading && events.length > 0 && (
-                      <div className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full border border-green-200">
-                        {events.length}
-                      </div>
-                    )}
-                  </div>
+        {/* Calendar Sub-Menu */}
+        {currentPage === 'calendar' && (
+          <div className="mb-6">
+            <div className="flex items-center justify-center">
+              <div className="bg-productivity-surface rounded-full p-1 border border-border shadow-sm">
+                <div className="flex items-center gap-1">
                   <button
-                    onClick={() => (refetch as (forceRefresh?: boolean) => void)(true)}
-                    disabled={loading}
-                    className="p-1 text-productivity-text-secondary hover:text-productivity-text-primary transition-colors"
-                    title="Refresh Events"
+                    onClick={() => setCalendarSubPage('events')}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                      calendarSubPage === 'events'
+                        ? 'bg-green-500 text-white shadow-sm'
+                        : 'text-productivity-text-secondary hover:text-productivity-text-primary hover:bg-background'
+                    }`}
                   >
-                    <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                    Events
+                  </button>
+                  <button
+                    onClick={() => setCalendarSubPage('horizons')}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                      calendarSubPage === 'horizons'
+                        ? 'bg-purple-500 text-white shadow-sm'
+                        : 'text-productivity-text-secondary hover:text-productivity-text-primary hover:bg-background'
+                    }`}
+                  >
+                    Horizons
                   </button>
                 </div>
-                <div className="mb-4">
-                {/* Mobile: Stack controls vertically */}
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-2">
-                  {/* Primary filters row */}
-                  <div className="flex items-center gap-2 flex-1">
-                    <TimeFilterChips
-                      value={timeFilter}
-                      onChange={(value) => {
-                        setTimeFilter(value);
-                        setSelectedDate('');
-                      }}
-                      isDateSelected={!!selectedDate}
-                    />
-
-                    <input
-                      type="date"
-                      value={selectedDate}
-                      onChange={(e) => {
-                        const newDate = e.target.value;
-                        console.log(`###Atin Date picker onChange - old: ${selectedDate}, new: ${newDate}`);
-                        if (newDate) {
-                          // Clear ALL cache entries for the current timeFilter to avoid stale data
-                          // This includes both with and without specific dates
-                          const cacheKeyWithDate = `eventhorizon_events_${timeFilter}_${newDate}`;
-                          const cacheKeyWithoutDate = `eventhorizon_events_${timeFilter}`;
-                          cache.remove(cacheKeyWithDate);
-                          cache.remove(cacheKeyWithoutDate);
-                          console.log(`🗑️ Cleared cache for keys: ${cacheKeyWithDate}, ${cacheKeyWithoutDate}`);
-                        }
-                        console.log(`###Atin About to call setSelectedDate with: ${newDate}`);
-                        setSelectedDate(newDate);
-                        console.log(`###Atin setSelectedDate called`);
-                      }}
-                      className="px-2 py-1 text-xs border border-border rounded bg-background text-productivity-text-primary focus:outline-none focus:ring-1 focus:ring-primary w-32 sm:w-28"
-                      title="Select specific date"
-                    />
-
-                    {selectedDate && (
-                      <Button
-                        onClick={() => setSelectedDate('')}
-                        variant="outline"
-                        size="sm"
-                        className="p-1 h-7 w-7 flex-shrink-0"
-                        title="Clear date"
-                      >
-                        ×
-                      </Button>
-                    )}
-                  </div>
-
-                  {/* Navigation buttons */}
-                  <div className="flex items-center gap-2 justify-center sm:justify-start">
-                    <Button
-                      onClick={() => navigateTimeFilter('prev')}
-                      variant="outline"
-                      size="sm"
-                      className="p-1 h-7 w-7"
-                      title="Previous"
-                    >
-                      <ChevronLeft className="w-3 h-3" />
-                    </Button>
-                    <Button
-                      onClick={() => navigateTimeFilter('next')}
-                      variant="outline"
-                      size="sm"
-                      className="p-1 h-7 w-7"
-                      title="Next"
-                    >
-                      <ChevronRight className="w-3 h-3" />
-                    </Button>
-                  </div>
-                </div>
-                </div>
-
-                {/* Error Alert */}
-                {error && (
-                  <Alert className="mb-6" variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
-                      Failed to load events: {error}
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </div>
-
-              {/* Events List - Scrollable */}
-              <div className="flex-1 overflow-y-auto px-4 pb-4">
-                <CalendarEventsList
-                  events={events}
-                  timeFilter={timeFilter}
-                  loading={loading}
-                  onBookmarkCreated={handleBookmarkCreated}
-                  selectedDate={selectedDate}
-                  bookmarkedEventTitles={bookmarkedEventTitles}
-                />
               </div>
             </div>
           </div>
+        )}
 
-          {/* Right Column - Horizons and TODO Section */}
-          <div className="space-y-4 md:space-y-6">
-            <HorizonSection />
-            <TodoSection />
-          </div>
-          </div>
+        {/* Main Content */}
+        {currentPage === 'calendar' ? (
+          calendarSubPage === 'events' ? (
+            /* Events Page Content */
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+                {/* Events - Left */}
+                <div className="bg-productivity-surface rounded-lg border border-border max-h-[800px] overflow-hidden flex flex-col">
+                  {/* Title and Filter Controls */}
+                  <div className="p-4 pb-0 flex-shrink-0">
+                    {/* Events Title */}
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <h3 className="text-lg font-semibold text-productivity-text-primary flex items-center gap-2">
+                          <Calendar className="w-5 h-5 text-green-500" />
+                          Events
+                        </h3>
+                        {/* Event count badge */}
+                        {!loading && events.length > 0 && (
+                          <div className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full border border-green-200">
+                            {events.length}
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => (refetch as (forceRefresh?: boolean) => void)(true)}
+                        disabled={loading}
+                        className="p-1 text-productivity-text-secondary hover:text-productivity-text-primary transition-colors"
+                        title="Refresh Events"
+                      >
+                        <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                      </button>
+                    </div>
+                    <div className="mb-4">
+                    {/* Mobile: Stack controls vertically */}
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-2">
+                      {/* Primary filters row */}
+                      <div className="flex items-center gap-2 flex-1">
+                        <TimeFilterChips
+                          value={timeFilter}
+                          onChange={(value) => {
+                            setTimeFilter(value);
+                            setSelectedDate('');
+                          }}
+                          isDateSelected={!!selectedDate}
+                        />
+
+                        <input
+                          type="date"
+                          value={selectedDate}
+                          onChange={(e) => {
+                            const newDate = e.target.value;
+                            console.log(`###Atin Date picker onChange - old: ${selectedDate}, new: ${newDate}`);
+                            if (newDate) {
+                              // Clear ALL cache entries for the current timeFilter to avoid stale data
+                              // This includes both with and without specific dates
+                              const cacheKeyWithDate = `eventhorizon_events_${timeFilter}_${newDate}`;
+                              const cacheKeyWithoutDate = `eventhorizon_events_${timeFilter}`;
+                              cache.remove(cacheKeyWithDate);
+                              cache.remove(cacheKeyWithoutDate);
+                              console.log(`🗑️ Cleared cache for keys: ${cacheKeyWithDate}, ${cacheKeyWithoutDate}`);
+                            }
+                            console.log(`###Atin About to call setSelectedDate with: ${newDate}`);
+                            setSelectedDate(newDate);
+                            console.log(`###Atin setSelectedDate called`);
+                          }}
+                          className="px-2 py-1 text-xs border border-border rounded bg-background text-productivity-text-primary focus:outline-none focus:ring-1 focus:ring-primary w-32 sm:w-28"
+                          title="Select specific date"
+                        />
+
+                        {selectedDate && (
+                          <Button
+                            onClick={() => setSelectedDate('')}
+                            variant="outline"
+                            size="sm"
+                            className="p-1 h-7 w-7 flex-shrink-0"
+                            title="Clear date"
+                          >
+                            ×
+                          </Button>
+                        )}
+                      </div>
+
+                      {/* Navigation buttons */}
+                      <div className="flex items-center gap-2 justify-center sm:justify-start">
+                        <Button
+                          onClick={() => navigateTimeFilter('prev')}
+                          variant="outline"
+                          size="sm"
+                          className="p-1 h-7 w-7"
+                          title="Previous"
+                        >
+                          <ChevronLeft className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          onClick={() => navigateTimeFilter('next')}
+                          variant="outline"
+                          size="sm"
+                          className="p-1 h-7 w-7"
+                          title="Next"
+                        >
+                          <ChevronRight className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    </div>
+                    </div>
+
+                    {/* Error Alert */}
+                    {error && (
+                      <Alert className="mb-6" variant="destructive">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>
+                          Failed to load events: {error}
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                  </div>
+
+                  {/* Events List - Scrollable */}
+                  <div className="flex-1 overflow-y-auto px-4 pb-4">
+                    <CalendarEventsList
+                      events={events}
+                      timeFilter={timeFilter}
+                      loading={loading}
+                      onBookmarkCreated={handleBookmarkCreated}
+                      selectedDate={selectedDate}
+                      bookmarkedEventTitles={bookmarkedEventTitles}
+                    />
+                  </div>
+                </div>
+
+                {/* Important Events - Right */}
+                <div>
+                  <KeyEventsSection
+                    refreshTrigger={bookmarkRefreshTrigger}
+                    onBookmarkDeleted={handleBookmarkCreated}
+                  />
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* Horizons Page Content */
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+                {/* Horizons - Left */}
+                <div>
+                  <HorizonSection />
+                </div>
+
+                {/* To-do List - Right */}
+                <div>
+                  <TodoSection />
+                </div>
+              </div>
+            </div>
+          )
         ) : currentPage === 'health' ? (
           /* Health Page Content */
           <div className="flex items-center justify-center py-16">
