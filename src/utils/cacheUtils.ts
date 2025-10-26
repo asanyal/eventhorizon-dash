@@ -187,21 +187,25 @@ export class LocalStorageCache {
 
 // Cache keys for different data types
 export const CACHE_KEYS = {
-  CALENDAR_EVENTS: (timeFilter: string, specificDate?: string) => 
+  CALENDAR_EVENTS: (timeFilter: string, specificDate?: string) =>
     `eventhorizon_events_${timeFilter}${specificDate ? `_${specificDate}` : ''}`,
   BOOKMARKS: 'eventhorizon_bookmarks',
   TODOS: (params?: string) => `eventhorizon_todos${params ? `_${params}` : ''}`,
   HORIZONS: 'eventhorizon_horizons',
   HOLIDAYS: 'eventhorizon_holidays',
-  BOOKMARK_TITLES: 'eventhorizon_bookmark_titles'
+  BOOKMARK_TITLES: 'eventhorizon_bookmark_titles',
+  INGREDIENTS: 'eventhorizon_ingredients',
+  MEALS: 'eventhorizon_meals',
+  WEEKLY_MEAL_PLAN: (weekStartDate: string) => `eventhorizon_weekly_meal_plan_${weekStartDate}`,
 } as const;
 
 // Cache TTL configurations (in milliseconds)
 export const CACHE_TTL = {
   EVENTS: 2 * 60 * 1000,      // 2 minutes - events change frequently
-  BOOKMARKS: 5 * 60 * 1000,   // 5 minutes - bookmarks change less frequently  
+  BOOKMARKS: 5 * 60 * 1000,   // 5 minutes - bookmarks change less frequently
   TODOS: 3 * 60 * 1000,       // 3 minutes - todos change moderately
   HORIZONS: 10 * 60 * 1000,   // 10 minutes - horizons change infrequently
+  MEAL_PREP: 10 * 60 * 1000,  // 10 minutes - meal prep data changes infrequently
 } as const;
 
 // Export singleton instance
