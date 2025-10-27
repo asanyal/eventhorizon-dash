@@ -800,59 +800,54 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
 
       {/* Summary Section */}
       {searchFilteredEvents.length > 0 && !loading && (
-        <div className="bg-background rounded-lg p-3 md:p-4 border border-border">
-          <div className={cn(
-            "gap-4 md:gap-6 text-xs",
-            isMobile 
-              ? "grid grid-cols-2 sm:grid-cols-3" 
-              : "grid"
-          )} style={!isMobile ? { gridTemplateColumns: '1fr 0.8fr 1fr' } : undefined}>
+        <div className="bg-background rounded-lg px-3 py-1.5 border border-border">
+          <div className="flex items-center gap-4 text-[10px] text-productivity-text-secondary">
             {/* Total Events */}
-            <div>
-              <div className="text-productivity-text-secondary font-medium mb-2">Events</div>
-              <div className="text-2xl font-bold text-productivity-text-primary">
+            <div className="flex items-center gap-1.5">
+              <span className="font-medium">Events:</span>
+              <span className="font-bold text-productivity-text-primary">
                 {searchFilteredEvents.length}
                 {searchQuery && events.length !== searchFilteredEvents.length && (
-                  <span className="text-sm text-gray-500 ml-1">of {events.length}</span>
+                  <span className="text-gray-500 ml-0.5">/{events.length}</span>
                 )}
-              </div>
+              </span>
             </div>
-            
+
             {/* Meeting Types */}
-            <div>
-              <div className="text-productivity-text-secondary font-medium mb-2">Meetings</div>
-              <div className="space-y-1">
+            {meetingTypes.length > 0 && (
+              <div className="flex items-center gap-2">
                 {meetingTypes.map((type, idx) => (
                   <div key={idx} className="flex items-center gap-1">
-                    <span className="w-1 h-1 bg-productivity-text-tertiary rounded-full"></span>
                     <span className={cn(
-                      "text-productivity-text-primary",
+                      "font-medium",
                       type.label === 'External' && "text-orange-500"
                     )}>
-                      {type.label} {type.count}
+                      {type.label.charAt(0)}:
+                    </span>
+                    <span className={cn(
+                      "font-bold",
+                      type.label === 'External' ? "text-orange-500" : "text-productivity-text-primary"
+                    )}>
+                      {type.count}
                     </span>
                   </div>
                 ))}
               </div>
-            </div>
-            
+            )}
+
             {/* Time Distribution */}
-            <div>
-              <div className="text-productivity-text-secondary font-medium mb-2">Time of Day</div>
-              <div className="space-y-1">
+            {timeDistribution.length > 0 && (
+              <div className="flex items-center gap-2">
                 {timeDistribution.map((time, idx) => (
                   <div key={idx} className="flex items-center gap-1">
-                    <span className="text-sm">
-                      {time.label === 'Morning:' ? '🌅' : '🌆'}
-                    </span>
-                    <span className="text-productivity-text-primary">
-                      {time.label} {time.count}
+                    <span>{time.label === 'Morning:' ? '🌅' : '🌆'}</span>
+                    <span className="font-bold text-productivity-text-primary">
+                      {time.count}
                     </span>
                   </div>
                 ))}
               </div>
-            </div>
-            
+            )}
           </div>
         </div>
       )}

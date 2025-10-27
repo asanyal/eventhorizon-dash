@@ -252,38 +252,40 @@ export const WeeklyMealPlanner = () => {
                 <div
                   {...provided.droppableProps}
                   ref={provided.innerRef}
-                  className="space-y-2 min-h-[100px] p-3 bg-background rounded-lg border border-border"
+                  className="min-h-[100px] max-h-[200px] overflow-y-auto p-3 bg-background rounded-lg border border-border"
                 >
                   {meals.length === 0 ? (
                     <p className="text-xs text-productivity-text-tertiary text-center py-2">
                       No meals available. Create some meals first!
                     </p>
                   ) : (
-                    meals.map((meal, index) => (
-                      <Draggable
-                        key={meal.id || meal.name}
-                        draggableId={meal.id || meal.name}
-                        index={index}
-                      >
-                        {(provided, snapshot) => (
-                          <div
-                            ref={provided.innerRef}
-                            {...provided.draggableProps}
-                            className={cn(
-                              'flex items-center gap-2 p-2 rounded-lg border border-border bg-productivity-surface transition-all',
-                              snapshot.isDragging && 'shadow-lg rotate-1 scale-105 z-50 opacity-90'
-                            )}
-                          >
-                            <div {...provided.dragHandleProps} className="cursor-grab active:cursor-grabbing">
-                              <GripVertical className="w-4 h-4 text-productivity-text-tertiary" />
+                    <div className="grid grid-cols-3 gap-2">
+                      {meals.map((meal, index) => (
+                        <Draggable
+                          key={meal.id || meal.name}
+                          draggableId={meal.id || meal.name}
+                          index={index}
+                        >
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              className={cn(
+                                'flex items-center gap-1.5 px-2 py-1.5 rounded-full border border-border bg-productivity-surface transition-all text-xs',
+                                snapshot.isDragging && 'shadow-lg scale-105 z-50 opacity-90'
+                              )}
+                            >
+                              <div {...provided.dragHandleProps} className="cursor-grab active:cursor-grabbing flex-shrink-0">
+                                <GripVertical className="w-3 h-3 text-productivity-text-tertiary" />
+                              </div>
+                              <span className="text-productivity-text-primary truncate">
+                                {meal.name}
+                              </span>
                             </div>
-                            <span className="text-sm text-productivity-text-primary flex-1">
-                              {meal.name}
-                            </span>
-                          </div>
-                        )}
-                      </Draggable>
-                    ))
+                          )}
+                        </Draggable>
+                      ))}
+                    </div>
                   )}
                   {provided.placeholder}
                 </div>
