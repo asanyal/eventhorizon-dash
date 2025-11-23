@@ -76,6 +76,7 @@ export const HorizonSection = () => {
   const [originalTitle, setOriginalTitle] = useState('');
   const [selectedFilters, setSelectedFilters] = useState<Set<'Event' | 'Meeting' | 'Others'>>(new Set());
   const [pinnedTooltip, setPinnedTooltip] = useState<string | null>(null);
+  const [showPast, setShowPast] = useState(false);
   const { convertTime } = useTimezone();
   const { isSimpleView } = useSimpleView();
 
@@ -236,8 +237,25 @@ export const HorizonSection = () => {
     });
   };
 
+  // Filter out past horizons (with dates that are in the past) unless showPast is true
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Set to start of day for accurate comparison
+
+  const futureOrNoDateHorizons = showPast ? horizons : horizons.filter(horizon => {
+    // Keep horizons without dates
+    if (!horizon.horizon_date || horizon.horizon_date === 'null') {
+      return true;
+    }
+
+    // Check if horizon date is in the future or today
+    const horizonDate = new Date(horizon.horizon_date);
+    horizonDate.setHours(0, 0, 0, 0);
+
+    return horizonDate >= today;
+  });
+
   // Calculate filtered horizons for use in header count and render logic
-  const filteredHorizons = selectedFilters.size === 0 ? horizons : horizons.filter(horizon => {
+  const filteredHorizons = selectedFilters.size === 0 ? futureOrNoDateHorizons : futureOrNoDateHorizons.filter(horizon => {
     if (selectedFilters.has('Event') && horizon.type === 'Event') return true;
     if (selectedFilters.has('Meeting') && horizon.type === 'Meeting') return true;
     if (selectedFilters.has('Others') && (horizon.type === 'OnMyMind' || horizon.type === null || (horizon.type !== 'Event' && horizon.type !== 'Meeting'))) return true;
@@ -261,7 +279,7 @@ export const HorizonSection = () => {
             >
               <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
             </button>
-            
+
             <button
               onClick={() => setIsModalOpen(true)}
               className="px-3 py-1 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors text-sm font-medium"
@@ -269,6 +287,19 @@ export const HorizonSection = () => {
               Add Plan
             </button>
           </div>
+        </div>
+
+        {/* Show Past Checkbox */}
+        <div className="mb-4">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showPast}
+              onChange={(e) => setShowPast(e.target.checked)}
+              className="w-4 h-4 text-orange-600 bg-orange-100 border-orange-300 rounded focus:ring-orange-500 focus:ring-2"
+            />
+            <span className="text-sm text-orange-700">Show past plans</span>
+          </label>
         </div>
 
         {/* Simple Add Modal */}
@@ -330,12 +361,12 @@ export const HorizonSection = () => {
 
         {/* Simple Plans List */}
         <div className="space-y-3">
-          {horizons.length === 0 ? (
+          {futureOrNoDateHorizons.length === 0 ? (
             <div className="text-center py-8 text-lg text-orange-600">
               No plans yet
             </div>
           ) : (
-            horizons.map((horizon, index) => {
+            futureOrNoDateHorizons.map((horizon, index) => {
               const horizonId = horizon.id || `horizon-${index}`;
               const validHorizonDate = horizon.horizon_date && horizon.horizon_date !== 'null' ? horizon.horizon_date : null;
               const dateToShow = validHorizonDate || horizon.created_at;
@@ -574,8 +605,21 @@ export const HorizonSection = () => {
         </div>
       </div>
 
+      {/* Show Past Checkbox */}
+      <div className="mb-4">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showPast}
+            onChange={(e) => setShowPast(e.target.checked)}
+            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+          />
+          <span className="text-sm text-productivity-text-secondary">Show past horizons</span>
+        </label>
+      </div>
+
       {/* Filter Chips */}
-      {horizons.length > 0 && (
+      {futureOrNoDateHorizons.length > 0 && (
         <div className="mb-4">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-xs text-productivity-text-secondary font-medium">Filter by type:</span>
@@ -621,7 +665,7 @@ export const HorizonSection = () => {
 
       {/* Horizons List */}
       <div className="space-y-2">
-        {horizons.length === 0 ? (
+        {futureOrNoDateHorizons.length === 0 ? (
           <p className="text-sm text-productivity-text-tertiary">
             No horizons yet.
           </p>

@@ -378,7 +378,7 @@ const IndexContent = () => {
         </div>
 
         {/* Navigation Menu Bar */}
-        <div className="mb-6 md:mb-8">
+        <div className={currentPage === 'calendar' ? 'mb-3' : 'mb-6 md:mb-8'}>
           <div className="flex items-center justify-center">
             <div className="bg-productivity-surface rounded-full p-1 border border-border shadow-sm">
               <div className="flex items-center gap-1">
@@ -430,7 +430,7 @@ const IndexContent = () => {
 
         {/* Calendar Sub-Menu */}
         {currentPage === 'calendar' && (
-          <div className="mb-6">
+          <div className="mb-6 md:mb-8">
             <div className="flex items-center justify-center">
               <div className="bg-productivity-surface rounded-full p-1 border border-border shadow-sm">
                 <div className="flex items-center gap-1">
