@@ -334,18 +334,33 @@ const IndexContent = () => {
             <div className="flex items-center gap-2 md:gap-3">
               <Calendar className="w-6 h-6 md:w-8 md:h-8 text-primary" />
               <h1 className="text-2xl md:text-3xl font-bold text-productivity-text-primary">
-                Wake Up
+                {getGreeting(currentTime)}
               </h1>
             </div>
             <TimezoneSelector />
           </div>
           <p className="text-sm md:text-base text-productivity-text-secondary mb-3 md:mb-4">
-            Each moment is wide open.
+            {(() => {
+              const meetingInfo = getNextMeetingInfo(todayEvents, tomorrowEvents, convertTime);
+              return (
+                <>
+                  {meetingInfo.prefix}
+                  {meetingInfo.meetingTitle && (
+                    <span className="ml-1 font-bold">
+                      {meetingInfo.meetingTitle}
+                    </span>
+                  )}
+                  {meetingInfo.meetingTime && (
+                    <span className="ml-1 px-2 py-1 md:px-3 md:py-1 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-lg shadow-sm text-xs md:text-sm">
+                      {meetingInfo.meetingTime}
+                    </span>
+                  )}
+                  {meetingInfo.suffix}
+                </>
+              );
+            })()}
           </p>
-          <div className="text-lg md:text-2xl font-semibold text-productivity-text-primary">
-            {getGreeting(currentTime)}
-          </div>
-          
+
           {/* Ongoing Meeting Info */}
           {(() => {
             const ongoingInfo = getOngoingMeetingInfo(todayEvents);
@@ -360,29 +375,6 @@ const IndexContent = () => {
             }
             return null;
           })()}
-          
-          {/* Next Meeting Info */}
-          <div className="text-sm md:text-lg mt-2">
-            {(() => {
-              const meetingInfo = getNextMeetingInfo(todayEvents, tomorrowEvents, convertTime);
-              return (
-                <span className="text-productivity-text-secondary">
-                  {meetingInfo.prefix}
-                  {meetingInfo.meetingTitle && (
-                    <span className="ml-1 font-bold text-productivity-text-secondary">
-                      {meetingInfo.meetingTitle}
-                    </span>
-                  )}
-                  {meetingInfo.meetingTime && (
-                    <span className="ml-1 px-2 py-1 md:px-3 md:py-1 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-lg shadow-sm hover:shadow-md transition-all duration-200 transform hover:scale-105 cursor-pointer text-xs md:text-sm">
-                      {meetingInfo.meetingTime}
-                    </span>
-                  )}
-                  <span className="text-productivity-text-secondary">{meetingInfo.suffix}</span>
-                </span>
-              );
-            })()}
-          </div>
         </div>
 
         {/* Navigation Menu Bar */}
