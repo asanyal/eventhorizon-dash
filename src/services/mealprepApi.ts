@@ -175,15 +175,21 @@ export class MealPrepApiService {
    * Update a specific meal slot in the weekly plan
    */
   async updateMealSlot(update: UpdateWeeklyMealPlanRequest): Promise<WeeklyMealPlan> {
+    console.log('🌐 Sending PATCH request to /update-meal-slot with:', update);
     const response = await fetch(`${this.baseUrl}/update-meal-slot`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(update),
     });
+
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorText = await response.text();
+      console.error('❌ API Error Response:', errorText);
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
     }
+
     const data = await response.json();
+    console.log('✅ API Success Response:', data);
     return this.normalizeId(data);
   }
 

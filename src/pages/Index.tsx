@@ -475,7 +475,7 @@ const IndexContent = () => {
             <div className="space-y-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
                 {/* Events - Left */}
-                <div className="bg-productivity-surface rounded-lg border border-border max-h-[800px] overflow-hidden flex flex-col">
+                <div className="bg-productivity-surface rounded-lg border border-border max-h-[560px] overflow-hidden flex flex-col">
                   {/* Title and Filter Controls */}
                   <div className="p-4 pb-0 flex-shrink-0">
                     {/* Events Title */}

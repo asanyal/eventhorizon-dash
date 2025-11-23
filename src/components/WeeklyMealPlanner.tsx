@@ -27,6 +27,7 @@ export const WeeklyMealPlanner = () => {
   const [isMealDialogOpen, setIsMealDialogOpen] = useState(false);
   const [isIngredientsListOpen, setIsIngredientsListOpen] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
+  const [checkedIngredients, setCheckedIngredients] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     // Clear cache on mount to ensure fresh data with normalized IDs
@@ -50,11 +51,13 @@ export const WeeklyMealPlanner = () => {
     try {
       const cached = cache.get<Meal[]>(CACHE_KEYS.MEALS);
       if (cached) {
+        console.log('🍽️ Using cached meals:', cached);
         setMeals(cached);
         return;
       }
 
       const data = await mealPrepApiService.getMeals();
+      console.log('🍽️ Fetched meals from API:', data);
       cache.set(CACHE_KEYS.MEALS, data, { ttl: CACHE_TTL.MEAL_PREP });
       setMeals(data);
     } catch (error) {
@@ -127,17 +130,42 @@ export const WeeklyMealPlanner = () => {
     }
   };
 
+  const toggleIngredient = (ingredient: string) => {
+    setCheckedIngredients(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(ingredient)) {
+        newSet.delete(ingredient);
+      } else {
+        newSet.add(ingredient);
+      }
+      return newSet;
+    });
+  };
+
+  const clearCheckedIngredients = () => {
+    setCheckedIngredients(new Set());
+  };
+
   const handleDragEnd = async (result: DropResult) => {
     const { source, destination } = result;
 
+    console.log('🎯 Drag ended:', { source, destination, draggableId: result.draggableId });
+
     // Dropped outside a valid droppable area
-    if (!destination) return;
+    if (!destination) {
+      console.log('❌ No destination - dropped outside');
+      return;
+    }
 
     // Dropped in the same place
-    if (source.droppableId === destination.droppableId) return;
+    if (source.droppableId === destination.droppableId) {
+      console.log('❌ Same place - no change');
+      return;
+    }
 
     // Get the meal being dragged
     const mealId = result.draggableId;
+    console.log('📦 Meal ID being dragged:', mealId);
 
     // Determine which slot to update
     const slotField = destination.droppableId as
@@ -146,9 +174,18 @@ export const WeeklyMealPlanner = () => {
       | 'monday_dinner'
       | 'wednesday_dinner';
 
+    console.log('🎯 Target slot:', slotField);
+
     try {
       setLoading(true);
       const weekStartDate = format(currentWeekStart, 'yyyy-MM-dd');
+      console.log('📅 Week start date:', weekStartDate);
+
+      console.log('🚀 Calling API with:', {
+        week_start_date: weekStartDate,
+        day_field: slotField,
+        meal_id: mealId,
+      });
 
       // Update the meal slot
       const updatedPlan = await mealPrepApiService.updateMealSlot({
@@ -157,10 +194,14 @@ export const WeeklyMealPlanner = () => {
         meal_id: mealId,
       });
 
+      console.log('✅ API response:', updatedPlan);
       setWeeklyPlan(updatedPlan);
       cache.remove(CACHE_KEYS.WEEKLY_MEAL_PLAN(weekStartDate));
+      console.log('🗑️ Cache cleared for:', weekStartDate);
     } catch (error) {
-      console.error('Error updating meal slot:', error);
+      console.error('💥 Error updating meal slot:', error);
+      // Show error to user
+      alert('Failed to update meal plan. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -433,37 +474,67 @@ export const WeeklyMealPlanner = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
               <span>All Ingredients for This Week</span>
-              {getAllIngredients().length > 0 && (
-                <Button
-                  onClick={handleCopyIngredients}
-                  variant="outline"
-                  size="sm"
-                  className="h-8 px-3"
-                >
-                  {isCopied ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 mr-1.5" />
-                      Copied!
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5 mr-1.5" />
-                      Copy
-                    </>
-                  )}
-                </Button>
-              )}
+              <div className="flex items-center gap-2">
+                {getAllIngredients().length > 0 && checkedIngredients.size > 0 && (
+                  <Button
+                    onClick={clearCheckedIngredients}
+                    variant="outline"
+                    size="sm"
+                    className="h-8 px-3"
+                  >
+                    Clear
+                  </Button>
+                )}
+                {getAllIngredients().length > 0 && (
+                  <Button
+                    onClick={handleCopyIngredients}
+                    variant="outline"
+                    size="sm"
+                    className="h-8 px-3"
+                  >
+                    {isCopied ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 mr-1.5" />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5 mr-1.5" />
+                        Copy
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
             </DialogTitle>
             <DialogDescription>
               Complete shopping list for all planned meals
             </DialogDescription>
           </DialogHeader>
 
-          <div className="py-4">
+          <div className="py-4 max-h-[400px] overflow-y-auto">
             {getAllIngredients().length > 0 ? (
-              <p className="text-sm text-productivity-text-primary leading-relaxed">
-                {getAllIngredients().join(', ')}
-              </p>
+              <div className="space-y-2">
+                {getAllIngredients().map((ingredient, index) => (
+                  <label
+                    key={index}
+                    className="flex items-center gap-3 p-2 rounded hover:bg-background cursor-pointer transition-colors"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checkedIngredients.has(ingredient)}
+                      onChange={() => toggleIngredient(ingredient)}
+                      className="w-4 h-4 text-blue-500 bg-white border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                    />
+                    <span className={cn(
+                      "text-sm text-productivity-text-primary",
+                      checkedIngredients.has(ingredient) && "line-through text-productivity-text-tertiary"
+                    )}>
+                      {ingredient}
+                    </span>
+                  </label>
+                ))}
+              </div>
             ) : (
               <p className="text-sm text-productivity-text-tertiary">
                 No meals planned yet. Add some meals to see ingredients.

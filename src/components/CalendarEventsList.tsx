@@ -765,93 +765,66 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
   }
 
   return (
-    <div className="space-y-4">
-      {/* Sticky Header: Date Display and Search Bar */}
-      <div className="sticky top-0 z-10 bg-white pb-4 space-y-4">
-        {/* Selected Date Display */}
-        <div className="bg-blue-50 border-l-4 border-blue-400 px-4 py-2 rounded-r-lg">
-          <div className="text-sm font-medium text-blue-900">
-            📅 {formatDateRangeDisplay(timeFilter, selectedDate)}
-          </div>
-        </div>
-
-        {/* Search Bar */}
-        {events.length > 0 && !loading && (
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <input
-              type="text"
-              placeholder="Search events, attendees, dates..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                <X className="w-4 h-4" />
-              </button>
+    <div className="space-y-2">
+      {/* Sticky Header: Date Display, Event Count, Time Distribution, and Search Bar */}
+      <div className="sticky top-0 z-10 bg-white pb-2">
+        {/* Combined Row: Date, Event Count, Time Distribution, and Search */}
+        <div className="bg-blue-50 border-l-4 border-blue-400 px-3 py-1 rounded-r-lg inline-flex items-center gap-4 max-w-fit">
+          {/* Left side: Date, Events, Distribution */}
+          <div className="flex items-center gap-4 text-sm font-medium text-blue-900">
+            <div>📅 {formatDateRangeDisplay(timeFilter, selectedDate)}</div>
+            {searchFilteredEvents.length > 0 && !loading && (
+              <>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-medium">Events:</span>
+                  <span className="font-bold">
+                    {searchFilteredEvents.length}
+                    {searchQuery && events.length !== searchFilteredEvents.length && (
+                      <span className="text-blue-600 ml-0.5">/{events.length}</span>
+                    )}
+                  </span>
+                </div>
+                {/* Time Distribution */}
+                {timeDistribution.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    {timeDistribution.map((time, idx) => (
+                      <div key={idx} className="flex items-center gap-1">
+                        <span>{time.label === 'Morning:' ? '🌅' : '🌆'}</span>
+                        <span className="font-bold">
+                          {time.count}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </div>
-        )}
+
+          {/* Right side: Search Bar (compact) */}
+          {events.length > 0 && !loading && (
+            <div className="relative w-64">
+              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
+              <input
+                type="text"
+                placeholder="Search events..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-8 pr-8 py-1 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Summary Section */}
-      {searchFilteredEvents.length > 0 && !loading && (
-        <div className="bg-background rounded-lg px-3 py-1.5 border border-border">
-          <div className="flex items-center gap-4 text-[10px] text-productivity-text-secondary">
-            {/* Total Events */}
-            <div className="flex items-center gap-1.5">
-              <span className="font-medium">Events:</span>
-              <span className="font-bold text-productivity-text-primary">
-                {searchFilteredEvents.length}
-                {searchQuery && events.length !== searchFilteredEvents.length && (
-                  <span className="text-gray-500 ml-0.5">/{events.length}</span>
-                )}
-              </span>
-            </div>
-
-            {/* Meeting Types */}
-            {meetingTypes.length > 0 && (
-              <div className="flex items-center gap-2">
-                {meetingTypes.map((type, idx) => (
-                  <div key={idx} className="flex items-center gap-1">
-                    <span className={cn(
-                      "font-medium",
-                      type.label === 'External' && "text-orange-500"
-                    )}>
-                      {type.label.charAt(0)}:
-                    </span>
-                    <span className={cn(
-                      "font-bold",
-                      type.label === 'External' ? "text-orange-500" : "text-productivity-text-primary"
-                    )}>
-                      {type.count}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Time Distribution */}
-            {timeDistribution.length > 0 && (
-              <div className="flex items-center gap-2">
-                {timeDistribution.map((time, idx) => (
-                  <div key={idx} className="flex items-center gap-1">
-                    <span>{time.label === 'Morning:' ? '🌅' : '🌆'}</span>
-                    <span className="font-bold text-productivity-text-primary">
-                      {time.count}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-      
       {/* Show/Hide Past Events Toggle and Meeting Type Filter */}
       {searchFilteredEvents.length > 0 && !loading && (
         <div className={cn(
