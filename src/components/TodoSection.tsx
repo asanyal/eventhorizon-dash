@@ -246,11 +246,11 @@ export const TodoSection = () => {
     <div className="bg-productivity-surface rounded-lg p-4 border border-border">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <h3 className="text-lg font-semibold text-productivity-text-primary">
+          <h3 className="text-xl font-semibold text-productivity-text-primary">
             To-do List
           </h3>
           {/* Todo count badge */}
-          <div className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full border border-green-200">
+          <div className="px-2 py-1 bg-green-100 text-green-700 text-sm font-medium rounded-full border border-green-200">
             {todos.length}
           </div>
         </div>
@@ -271,7 +271,7 @@ export const TodoSection = () => {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Add a to-do..."
-          className="w-full px-3 py-2 text-sm border border-border rounded-md bg-background text-productivity-text-primary placeholder-productivity-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+          className="w-full px-3 py-2 text-base border border-border rounded-md bg-background text-productivity-text-primary placeholder-productivity-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
           disabled={loading}
         />
         
@@ -318,7 +318,7 @@ export const TodoSection = () => {
               )}
             >
               {todos.length === 0 ? (
-                <p className="text-sm text-productivity-text-tertiary">
+                <p className="text-base text-productivity-text-tertiary">
                   You're all done! Here's a plant 🪴
                 </p>
               ) : (
@@ -356,7 +356,7 @@ export const TodoSection = () => {
 
                         {/* Date */}
                         {todo.created_at && (
-                          <div className="flex-shrink-0 text-sm text-productivity-text-tertiary">
+                          <div className="flex-shrink-0 text-base text-productivity-text-tertiary">
                             {formatDate(todo.created_at, convertTime)}
                           </div>
                         )}
@@ -364,7 +364,7 @@ export const TodoSection = () => {
                         {/* Title */}
                         <div className="flex-1 min-w-0">
                           <div className={cn(
-                            "todo-title text-sm break-words leading-tight font-medium transition-colors",
+                            "todo-title text-base break-words leading-tight font-medium transition-colors",
                             todo.priority === 'high' && todo.urgency === 'high'
                               ? "text-red-700 group-hover:text-red-800"
                               : (todo.priority === 'high' || todo.urgency === 'high')
@@ -377,9 +377,9 @@ export const TodoSection = () => {
 
                         {/* Priority Chip */}
                         <span className={cn(
-                          "px-2 py-1 text-xs font-medium rounded-full transition-all duration-200 transform group-hover:scale-105",
-                          todo.priority === 'high' 
-                            ? "bg-red-500 text-white shadow-sm group-hover:bg-red-600 group-hover:shadow-md" 
+                          "px-2 py-1 text-sm font-medium rounded-full transition-all duration-200 transform group-hover:scale-105",
+                          todo.priority === 'high'
+                            ? "bg-red-500 text-white shadow-sm group-hover:bg-red-600 group-hover:shadow-md"
                             : "bg-slate-200 text-slate-600 group-hover:bg-slate-300"
                         )}>
                           {todo.priority === 'high' ? '●' : '○'}
@@ -387,9 +387,9 @@ export const TodoSection = () => {
 
                         {/* Urgency Chip */}
                         <span className={cn(
-                          "px-2 py-1 text-xs font-medium rounded-full transition-all duration-200 transform group-hover:scale-105",
-                          todo.urgency === 'high' 
-                            ? "bg-orange-500 text-white shadow-sm group-hover:bg-orange-600 group-hover:shadow-md" 
+                          "px-2 py-1 text-sm font-medium rounded-full transition-all duration-200 transform group-hover:scale-105",
+                          todo.urgency === 'high'
+                            ? "bg-orange-500 text-white shadow-sm group-hover:bg-orange-600 group-hover:shadow-md"
                             : "bg-slate-200 text-slate-600 group-hover:bg-slate-300"
                         )}>
                           {todo.urgency === 'high' ? '▲' : '▽'}

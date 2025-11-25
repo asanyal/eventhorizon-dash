@@ -456,12 +456,12 @@ export const HorizonSection = () => {
     <div className="bg-productivity-surface rounded-lg p-4 border border-border">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <h3 className="text-lg font-semibold text-productivity-text-primary">
+          <h3 className="text-xl font-semibold text-productivity-text-primary">
             Horizons
           </h3>
           {/* Horizon count badge */}
           {!loading && (
-            <div className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full border border-blue-200">
+            <div className="px-2 py-1 bg-blue-100 text-blue-700 text-sm font-medium rounded-full border border-blue-200">
               {filteredHorizons.length}
             </div>
           )}
@@ -614,7 +614,7 @@ export const HorizonSection = () => {
             onChange={(e) => setShowPast(e.target.checked)}
             className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
           />
-          <span className="text-sm text-productivity-text-secondary">Show past horizons</span>
+          <span className="text-base text-productivity-text-secondary">Show past horizons</span>
         </label>
       </div>
 
@@ -622,12 +622,12 @@ export const HorizonSection = () => {
       {futureOrNoDateHorizons.length > 0 && (
         <div className="mb-4">
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-xs text-productivity-text-secondary font-medium">Filter by type:</span>
+            <span className="text-sm text-productivity-text-secondary font-medium">Filter by type:</span>
             <div className="flex gap-2">
               <button
                 onClick={() => toggleFilter('Event')}
                 className={cn(
-                  "px-3 py-1 text-xs font-medium rounded-full transition-colors",
+                  "px-3 py-1 text-sm font-medium rounded-full transition-colors",
                   selectedFilters.has('Event')
                     ? "text-white"
                     : "bg-gray-200 text-gray-600 hover:bg-gray-300"
@@ -639,7 +639,7 @@ export const HorizonSection = () => {
               <button
                 onClick={() => toggleFilter('Meeting')}
                 className={cn(
-                  "px-3 py-1 text-xs font-medium rounded-full transition-colors",
+                  "px-3 py-1 text-sm font-medium rounded-full transition-colors",
                   selectedFilters.has('Meeting')
                     ? "bg-purple-300 text-white"
                     : "bg-gray-200 text-gray-600 hover:bg-gray-300"
@@ -650,7 +650,7 @@ export const HorizonSection = () => {
               <button
                 onClick={() => toggleFilter('Others')}
                 className={cn(
-                  "px-3 py-1 text-xs font-medium rounded-full transition-colors",
+                  "px-3 py-1 text-sm font-medium rounded-full transition-colors",
                   selectedFilters.has('Others')
                     ? "bg-yellow-400 text-yellow-900"
                     : "bg-gray-200 text-gray-600 hover:bg-gray-300"
@@ -666,13 +666,13 @@ export const HorizonSection = () => {
       {/* Horizons List */}
       <div className="space-y-2">
         {futureOrNoDateHorizons.length === 0 ? (
-          <p className="text-sm text-productivity-text-tertiary">
+          <p className="text-base text-productivity-text-tertiary">
             No horizons yet.
           </p>
         ) : (
           <div>
             {filteredHorizons.length === 0 ? (
-                <p className="text-sm text-productivity-text-tertiary">
+                <p className="text-base text-productivity-text-tertiary">
                   No horizons match the selected filters.
                 </p>
               ) : filteredHorizons.map((horizon, index) => {
@@ -696,21 +696,21 @@ export const HorizonSection = () => {
                     {/* Left section with tight spacing - Type, Interval, Help, Title */}
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       {/* Type */}
-                      <div className="flex-shrink-0 w-20">
+                      <div className="flex-shrink-0 w-24">
                         {horizon.type === 'Event' ? (
-                          <span className="text-xs font-medium text-blue-600 bg-blue-100 px-2 py-1 rounded">Event</span>
+                          <span className="text-sm font-medium text-blue-600 bg-blue-100 px-2 py-1 rounded">Event</span>
                         ) : horizon.type === 'Meeting' ? (
-                          <span className="text-xs font-medium text-purple-600 bg-purple-100 px-2 py-1 rounded">Meeting</span>
+                          <span className="text-sm font-medium text-purple-600 bg-purple-100 px-2 py-1 rounded">Meeting</span>
                         ) : horizon.type === 'OnMyMind' ? (
-                          <span className="text-xs font-medium text-yellow-700 bg-yellow-100 px-2 py-1 rounded">On mind</span>
+                          <span className="text-sm font-medium text-yellow-700 bg-yellow-100 px-2 py-1 rounded">On mind</span>
                         ) : (
-                          <span className="text-xs font-medium text-gray-500">—</span>
+                          <span className="text-sm font-medium text-gray-500">—</span>
                         )}
                       </div>
 
                       {/* Days Until Date */}
                       <div className={cn(
-                        "flex-shrink-0 text-sm font-medium w-20",
+                        "flex-shrink-0 text-base font-medium w-24",
                         horizon.horizon_date && horizon.horizon_date !== 'null'
                           ? "text-red-500"
                           : horizon.type === 'Event'
@@ -766,7 +766,7 @@ export const HorizonSection = () => {
 
                       {/* Title */}
                       <div className="flex-1 min-w-0">
-                        <div className="horizon-title text-productivity-text-primary text-sm break-words leading-tight">
+                        <div className="horizon-title text-productivity-text-primary text-base break-words leading-tight">
                           {horizon.title}
                         </div>
                       </div>

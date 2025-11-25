@@ -829,18 +829,18 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
       {searchFilteredEvents.length > 0 && !loading && (
         <div className={cn(
           "mb-4",
-          isMobile 
-            ? "flex flex-col gap-3" 
+          isMobile
+            ? "flex flex-col gap-3"
             : "flex justify-between items-center"
         )}>
           {/* Meeting Type Filter */}
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs text-productivity-text-secondary font-medium whitespace-nowrap">Filter meetings:</span>
+            <span className="text-sm text-productivity-text-secondary font-medium whitespace-nowrap">Filter meetings:</span>
             <div className="flex gap-2">
               <button
                 onClick={() => setMeetingTypeFilter('all')}
                 className={cn(
-                  "px-2 md:px-3 py-1 text-xs font-medium rounded-full transition-colors",
+                  "px-2 md:px-3 py-1 text-sm font-medium rounded-full transition-colors",
                   meetingTypeFilter === 'all'
                     ? "bg-gray-500 text-white"
                     : "bg-gray-200 text-gray-600 hover:bg-gray-300"
@@ -851,7 +851,7 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
               <button
                 onClick={() => setMeetingTypeFilter('internal')}
                 className={cn(
-                  "px-2 md:px-3 py-1 text-xs font-medium rounded-full transition-colors",
+                  "px-2 md:px-3 py-1 text-sm font-medium rounded-full transition-colors",
                   meetingTypeFilter === 'internal'
                     ? "bg-blue-500 text-white"
                     : "bg-gray-200 text-gray-600 hover:bg-gray-300"
@@ -862,7 +862,7 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
               <button
                 onClick={() => setMeetingTypeFilter('external')}
                 className={cn(
-                  "px-2 md:px-3 py-1 text-xs font-medium rounded-full transition-colors",
+                  "px-2 md:px-3 py-1 text-sm font-medium rounded-full transition-colors",
                   meetingTypeFilter === 'external'
                     ? "bg-orange-500 text-white"
                     : "bg-gray-200 text-gray-600 hover:bg-gray-300"
@@ -872,11 +872,11 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
               </button>
             </div>
           </div>
-          
+
           {/* Show Past Events and All Day Toggles */}
           <div className="flex items-center gap-4">
             <label
-              className="flex items-center gap-2 text-xs text-productivity-text-secondary cursor-pointer"
+              className="flex items-center gap-2 text-sm text-productivity-text-secondary cursor-pointer"
               onClick={(e) => {
                 e.preventDefault();
                 setShowPastEvents(!showPastEvents);
@@ -886,12 +886,12 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
                 type="checkbox"
                 checked={showPastEvents}
                 onChange={() => {}}
-                className="w-3 h-3 text-primary bg-background border-border rounded focus:ring-0 focus:outline-none pointer-events-none"
+                className="w-4 h-4 text-primary bg-background border-border rounded focus:ring-0 focus:outline-none pointer-events-none"
               />
               Show past events
             </label>
             <label
-              className="flex items-center gap-2 text-xs text-productivity-text-secondary cursor-pointer"
+              className="flex items-center gap-2 text-sm text-productivity-text-secondary cursor-pointer"
               onClick={(e) => {
                 e.preventDefault();
                 setShowAllDayEvents(!showAllDayEvents);
@@ -901,7 +901,7 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
                 type="checkbox"
                 checked={showAllDayEvents}
                 onChange={() => {}}
-                className="w-3 h-3 text-primary bg-background border-border rounded focus:ring-0 focus:outline-none pointer-events-none"
+                className="w-4 h-4 text-primary bg-background border-border rounded focus:ring-0 focus:outline-none pointer-events-none"
               />
               All Day
             </label>
@@ -917,7 +917,7 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
       {/* Table Header - Desktop Only */}
       {!isMobile && (
         <div className="bg-table-header px-3 py-2 border-b border-border">
-          <div className="grid grid-cols-12 gap-1 text-xs font-medium text-productivity-text-secondary">
+          <div className="grid grid-cols-12 gap-1 text-sm font-medium text-productivity-text-secondary">
             <div className="col-span-1"></div>
             <div className="col-span-2">Date</div>
             <div className="col-span-2">Time</div>
@@ -1270,14 +1270,14 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
                   <div className="col-span-2">
                     <div className="space-y-1">
                       <span className={cn(
-                        "text-productivity-text-secondary text-xs block",
+                        "text-productivity-text-secondary text-sm block",
                         isPastEvent && "line-through",
                         isNextEvent && "font-bold"
                       )}>
                         {formatMinimalDate(convertedEvent.startTime)}
                       </span>
                       {!event.all_day && (
-                        <div className="text-[10px] text-productivity-text-tertiary">
+                        <div className="text-xs text-productivity-text-tertiary">
                           {formatDateTime(convertedEvent.startTime).split(' (')[1]?.replace(')', '') || formatDateTime(convertedEvent.startTime)}
                         </div>
                       )}
@@ -1286,7 +1286,7 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
                   
                   {/* Time (Urgency and Countdown) */}
                   <div className="col-span-2 flex items-center gap-2">
-                    <div 
+                    <div
                       className={cn(
                         "w-2 h-2 rounded-full flex-shrink-0",
                         isPastEvent ? "bg-gray-400" : event.all_day ? "bg-indigo-400" : getUrgencyColor(urgencyLevel)
@@ -1294,7 +1294,7 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
                       title={isPastEvent ? "Past event" : event.all_day ? "All-day event" : `Urgency: ${urgencyLevel}`}
                     />
                     <div className={cn(
-                      "text-productivity-text-secondary text-xs",
+                      "text-productivity-text-secondary text-sm",
                       isPastEvent && "line-through",
                       isNextEvent && "font-bold",
                       event.all_day && "text-indigo-600"
@@ -1316,7 +1316,7 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
                   {/* Event Title */}
                   <div className="col-span-3 flex items-center gap-1">
                     <span className={cn(
-                      "text-productivity-text-primary text-xs break-words leading-tight",
+                      "text-productivity-text-primary text-sm break-words leading-tight",
                       isPastEvent && "line-through",
                       isNextEvent && "font-bold",
                       isOngoing && !isNextEvent && !event.all_day && "font-bold text-red-600",
@@ -1325,8 +1325,8 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
                       {event.title}
                     </span>
                     {isExternalMeeting(event.attendees) && (
-                      <span 
-                        className="text-orange-500 text-[10px] font-medium"
+                      <span
+                        className="text-orange-500 text-xs font-medium"
                         title="External meeting"
                       >
                         EXT
@@ -1337,7 +1337,7 @@ export const CalendarEventsList = ({ events, timeFilter, loading = false, onBook
                   {/* Duration */}
                   <div className="col-span-1">
                     <span className={cn(
-                      "text-productivity-text-secondary font-mono text-[10px]",
+                      "text-productivity-text-secondary font-mono text-xs",
                       isPastEvent && "line-through",
                       isNextEvent && "font-bold"
                     )}>

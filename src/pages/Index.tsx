@@ -465,21 +465,21 @@ const IndexContent = () => {
           calendarSubPage === 'events' ? (
             /* Events Page Content */
             <div className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-                {/* Events - Left */}
-                <div className="bg-productivity-surface rounded-lg border border-border max-h-[560px] overflow-hidden flex flex-col">
+              <div className="flex flex-col gap-4 md:gap-6">
+                {/* Events */}
+                <div className="bg-productivity-surface rounded-lg border border-border overflow-hidden flex flex-col max-h-[462px]">
                   {/* Title and Filter Controls */}
                   <div className="p-4 pb-0 flex-shrink-0">
                     {/* Events Title */}
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-3">
-                        <h3 className="text-lg font-semibold text-productivity-text-primary flex items-center gap-2">
+                        <h3 className="text-xl font-semibold text-productivity-text-primary flex items-center gap-2">
                           <Calendar className="w-5 h-5 text-green-500" />
                           Events
                         </h3>
                         {/* Event count badge */}
                         {!loading && events.length > 0 && (
-                          <div className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full border border-green-200">
+                          <div className="px-2 py-1 bg-green-100 text-green-700 text-sm font-medium rounded-full border border-green-200">
                             {events.length}
                           </div>
                         )}
@@ -526,7 +526,7 @@ const IndexContent = () => {
                             setSelectedDate(newDate);
                             console.log(`###Atin setSelectedDate called`);
                           }}
-                          className="px-2 py-1 text-xs border border-border rounded bg-background text-productivity-text-primary focus:outline-none focus:ring-1 focus:ring-primary w-32 sm:w-28"
+                          className="px-2 py-1 text-sm border border-border rounded bg-background text-productivity-text-primary focus:outline-none focus:ring-1 focus:ring-primary w-32 sm:w-28"
                           title="Select specific date"
                         />
 
@@ -591,7 +591,7 @@ const IndexContent = () => {
                   </div>
                 </div>
 
-                {/* Important Events - Right */}
+                {/* Important Events */}
                 <div>
                   <KeyEventsSection
                     refreshTrigger={bookmarkRefreshTrigger}
@@ -603,13 +603,13 @@ const IndexContent = () => {
           ) : (
             /* Horizons Page Content */
             <div className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-                {/* Horizons - Left */}
+              <div className="flex flex-col gap-4 md:gap-6">
+                {/* Horizons */}
                 <div>
                   <HorizonSection />
                 </div>
 
-                {/* To-do List - Right */}
+                {/* To-do List */}
                 <div>
                   <TodoSection />
                 </div>
