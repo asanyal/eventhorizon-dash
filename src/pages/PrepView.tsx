@@ -203,7 +203,7 @@ const PrepViewContent = () => {
           existing_title: currentEventHorizon.title,
           new_title: currentEvent.title,
           new_details: notes.trim(),
-          new_type: 'Event',
+          new_type: 'Meeting',
           new_horizon_date: eventTime.toISOString().split('T')[0]
         };
         await horizonApiService.editHorizon(editRequest);
@@ -212,7 +212,7 @@ const PrepViewContent = () => {
         const horizonRequest: CreateHorizonRequest = {
           title: currentEvent.title,
           details: notes.trim(),
-          type: 'Event',
+          type: 'Meeting',
           horizon_date: eventTime.toISOString().split('T')[0] // Format as YYYY-MM-DD
         };
         await horizonApiService.createHorizon(horizonRequest);
@@ -349,8 +349,13 @@ const PrepViewContent = () => {
                       {/* Main Content: Mobile - Stack vertically, Desktop - Countdown on left, Title centered */}
                       <div className="flex flex-col md:flex-row md:items-start gap-3 md:gap-8">
                         {/* Countdown - Top on mobile, Left side on desktop */}
-                        <div className={`flex-shrink-0 text-xl md:text-2xl font-bold ${intervalColor} md:min-w-[180px]`}>
-                          {timeUntil}
+                        <div className="flex-shrink-0 md:min-w-[180px]">
+                          <div className={`text-xl md:text-2xl font-bold ${intervalColor}`}>
+                            {timeUntil}
+                          </div>
+                          <div className="text-sm md:text-base text-gray-500 mt-1">
+                            {eventTime.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} at {eventTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                          </div>
                         </div>
 
                         {/* Title - BIG and centered on desktop, left-aligned on mobile */}
