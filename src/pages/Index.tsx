@@ -156,7 +156,7 @@ const IndexContent = () => {
   const [bookmarkedEventTitles, setBookmarkedEventTitles] = useState<string[]>([]);
   const [bookmarkedEvents, setBookmarkedEvents] = useState<BookmarkEvent[]>([]);
   const [currentPage, setCurrentPage] = useState<PageType>('calendar');
-  const [calendarSubPage, setCalendarSubPage] = useState<CalendarSubPage>('events');
+  const [calendarSubPage, setCalendarSubPage] = useState<CalendarSubPage>('horizons');
   const { convertTime } = useTimezone();
   const { focusMode, setFocusMode } = useFocusMode();
   const navigate = useNavigate();
@@ -435,16 +435,6 @@ const IndexContent = () => {
               <div className="bg-productivity-surface rounded-full p-1 border border-border shadow-sm">
                 <div className="flex items-center gap-1">
                   <button
-                    onClick={() => setCalendarSubPage('events')}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                      calendarSubPage === 'events'
-                        ? 'bg-green-500 text-white shadow-sm'
-                        : 'text-productivity-text-secondary hover:text-productivity-text-primary hover:bg-background'
-                    }`}
-                  >
-                    Events
-                  </button>
-                  <button
                     onClick={() => setCalendarSubPage('horizons')}
                     className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
                       calendarSubPage === 'horizons'
@@ -453,6 +443,16 @@ const IndexContent = () => {
                     }`}
                   >
                     Horizons
+                  </button>
+                  <button
+                    onClick={() => setCalendarSubPage('events')}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                      calendarSubPage === 'events'
+                        ? 'bg-green-500 text-white shadow-sm'
+                        : 'text-productivity-text-secondary hover:text-productivity-text-primary hover:bg-background'
+                    }`}
+                  >
+                    Events
                   </button>
                 </div>
               </div>

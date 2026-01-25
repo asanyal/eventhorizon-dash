@@ -28,6 +28,20 @@ const formatDate = (dateString: string, convertTime: (date: Date) => Date): stri
   return convertedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
+// Helper function to format a date string as "Feb 24"
+const formatShortDate = (dateString: string): string => {
+  let eventDate: Date;
+  if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    const [year, month, day] = dateString.split('-').map(Number);
+    eventDate = new Date(year, month - 1, day);
+  } else {
+    eventDate = new Date(dateString);
+  }
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${days[eventDate.getDay()]}, ${months[eventDate.getMonth()]} ${eventDate.getDate()}`;
+};
+
 // Helper function to calculate days until event with timezone conversion
 const getDaysUntilEvent = (dateString: string, convertTime: (date: Date) => Date): string => {
   let eventDate: Date;
@@ -77,6 +91,9 @@ export const HorizonSection = () => {
   const [selectedFilters, setSelectedFilters] = useState<Set<'Event' | 'Meeting' | 'Others'>>(new Set());
   const [pinnedTooltip, setPinnedTooltip] = useState<string | null>(null);
   const [showPast, setShowPast] = useState(false);
+  const [detailsModalHorizon, setDetailsModalHorizon] = useState<HorizonItem | null>(null);
+  const [detailsText, setDetailsText] = useState('');
+  const [savingDetails, setSavingDetails] = useState(false);
   const { convertTime } = useTimezone();
   const { isSimpleView } = useSimpleView();
 
@@ -222,6 +239,33 @@ export const HorizonSection = () => {
       setPinnedTooltip(null); // Unpin if already pinned
     } else {
       setPinnedTooltip(horizonId); // Pin this tooltip
+    }
+  };
+
+  const handleOpenDetails = (horizon: HorizonItem) => {
+    setDetailsModalHorizon(horizon);
+    setDetailsText(horizon.details || '');
+  };
+
+  const handleSaveDetails = async () => {
+    if (!detailsModalHorizon) return;
+    setSavingDetails(true);
+    try {
+      const editRequest: EditHorizonRequest = {
+        existing_title: detailsModalHorizon.title,
+        new_title: detailsModalHorizon.title,
+        new_details: detailsText.trim(),
+        new_type: detailsModalHorizon.type,
+        new_horizon_date: detailsModalHorizon.horizon_date || null,
+      };
+      await horizonApiService.editHorizon(editRequest);
+      cache.remove(CACHE_KEYS.HORIZONS);
+      await fetchHorizons(true);
+      setDetailsModalHorizon(null);
+    } catch (error) {
+      console.error('Error saving details:', error);
+    } finally {
+      setSavingDetails(false);
     }
   };
 
@@ -402,10 +446,20 @@ export const HorizonSection = () => {
                         })()}
                       </div>
                     )}
-                    
+
+                    {/* Date Column */}
+                    {validHorizonDate && (
+                      <div className="flex-shrink-0 text-sm text-gray-500 font-medium">
+                        {formatShortDate(validHorizonDate)}
+                      </div>
+                    )}
+
                     {/* Plan Title */}
                     <div className="flex-1">
-                      <div className="text-lg font-semibold text-gray-900">
+                      <div
+                        className="text-lg font-semibold text-gray-900 cursor-pointer hover:text-blue-600 transition-colors"
+                        onClick={() => handleOpenDetails(horizon)}
+                      >
                         {horizon.title}
                       </div>
                     </div>
@@ -543,10 +597,9 @@ export const HorizonSection = () => {
                       className={cn(
                         "px-3 py-1 text-sm font-medium rounded-full transition-colors",
                         selectedType === 'Event'
-                          ? "text-white"
-                          : "bg-gray-200 text-gray-600 hover:bg-gray-300"
+                          ? "bg-blue-100 text-blue-600 ring-2 ring-blue-300"
+                          : "bg-blue-50 text-blue-600 hover:bg-blue-100"
                       )}
-                      style={selectedType === 'Event' ? { backgroundColor: '#3B82F6' } : undefined}
                       disabled={loading}
                     >
                       Event
@@ -557,8 +610,8 @@ export const HorizonSection = () => {
                       className={cn(
                         "px-3 py-1 text-sm font-medium rounded-full transition-colors",
                         selectedType === 'Meeting'
-                          ? "bg-purple-300 text-white"
-                          : "bg-gray-200 text-gray-600 hover:bg-gray-300"
+                          ? "bg-purple-100 text-purple-600 ring-2 ring-purple-300"
+                          : "bg-purple-50 text-purple-600 hover:bg-purple-100"
                       )}
                       disabled={loading}
                     >
@@ -570,8 +623,8 @@ export const HorizonSection = () => {
                       className={cn(
                         "px-3 py-1 text-sm font-medium rounded-full transition-colors",
                         selectedType === 'OnMyMind'
-                          ? "bg-yellow-400 text-yellow-900"
-                          : "bg-gray-200 text-gray-600 hover:bg-gray-300"
+                          ? "bg-yellow-100 text-yellow-700 ring-2 ring-yellow-300"
+                          : "bg-yellow-50 text-yellow-700 hover:bg-yellow-100"
                       )}
                       disabled={loading}
                     >
@@ -629,10 +682,9 @@ export const HorizonSection = () => {
                 className={cn(
                   "px-3 py-1 text-sm font-medium rounded-full transition-colors",
                   selectedFilters.has('Event')
-                    ? "text-white"
-                    : "bg-gray-200 text-gray-600 hover:bg-gray-300"
+                    ? "bg-blue-100 text-blue-600 ring-2 ring-blue-300"
+                    : "bg-blue-50 text-blue-600 hover:bg-blue-100"
                 )}
-                style={selectedFilters.has('Event') ? { backgroundColor: '#3B82F6' } : undefined}
               >
                 Events
               </button>
@@ -641,8 +693,8 @@ export const HorizonSection = () => {
                 className={cn(
                   "px-3 py-1 text-sm font-medium rounded-full transition-colors",
                   selectedFilters.has('Meeting')
-                    ? "bg-purple-300 text-white"
-                    : "bg-gray-200 text-gray-600 hover:bg-gray-300"
+                    ? "bg-purple-100 text-purple-600 ring-2 ring-purple-300"
+                    : "bg-purple-50 text-purple-600 hover:bg-purple-100"
                 )}
               >
                 Meetings
@@ -652,8 +704,8 @@ export const HorizonSection = () => {
                 className={cn(
                   "px-3 py-1 text-sm font-medium rounded-full transition-colors",
                   selectedFilters.has('Others')
-                    ? "bg-yellow-400 text-yellow-900"
-                    : "bg-gray-200 text-gray-600 hover:bg-gray-300"
+                    ? "bg-yellow-100 text-yellow-700 ring-2 ring-yellow-300"
+                    : "bg-yellow-50 text-yellow-700 hover:bg-yellow-100"
                 )}
               >
                 On my mind
@@ -727,6 +779,14 @@ export const HorizonSection = () => {
                         }
                       </div>
 
+                      {/* Date Column */}
+                      <div className="flex-shrink-0 text-xs text-gray-500 font-medium w-24">
+                        {horizon.horizon_date && horizon.horizon_date !== 'null'
+                          ? formatShortDate(horizon.horizon_date)
+                          : ''
+                        }
+                      </div>
+
                       {/* Help/Details Icon - moved before title */}
                       <div className="flex-shrink-0">
                         <div className="relative group">
@@ -766,7 +826,10 @@ export const HorizonSection = () => {
 
                       {/* Title */}
                       <div className="flex-1 min-w-0">
-                        <div className="horizon-title text-productivity-text-primary text-base break-words leading-tight">
+                        <div
+                          className="horizon-title text-productivity-text-primary text-base break-words leading-tight cursor-pointer hover:text-blue-600 transition-colors"
+                          onClick={() => handleOpenDetails(horizon)}
+                        >
                           {horizon.title}
                         </div>
                       </div>
@@ -799,6 +862,38 @@ export const HorizonSection = () => {
           </div>
         )}
       </div>
+
+      {/* Details Modal */}
+      <Dialog open={!!detailsModalHorizon} onOpenChange={(open) => { if (!open) setDetailsModalHorizon(null); }}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>{detailsModalHorizon?.title}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <label htmlFor="details-text" className="block text-sm font-medium text-productivity-text-primary mb-1">
+                Details
+              </label>
+              <Textarea
+                id="details-text"
+                value={detailsText}
+                onChange={(e) => setDetailsText(e.target.value)}
+                placeholder="Add details..."
+                className="w-full min-h-[150px]"
+                disabled={savingDetails}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setDetailsModalHorizon(null)} disabled={savingDetails}>
+                Cancel
+              </Button>
+              <Button onClick={handleSaveDetails} disabled={savingDetails}>
+                {savingDetails ? 'Saving...' : 'Save'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
