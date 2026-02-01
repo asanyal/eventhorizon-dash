@@ -88,7 +88,7 @@ export const HorizonSection = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingHorizon, setEditingHorizon] = useState<HorizonItem | null>(null);
   const [originalTitle, setOriginalTitle] = useState('');
-  const [selectedFilters, setSelectedFilters] = useState<Set<'Event' | 'Meeting' | 'Others'>>(new Set());
+  const [selectedFilters, setSelectedFilters] = useState<Set<'Event' | 'Meeting' | 'Conference' | 'Webinar' | 'Personal' | 'Others'>>(new Set());
   const [pinnedTooltip, setPinnedTooltip] = useState<string | null>(null);
   const [showPast, setShowPast] = useState(false);
   const [detailsModalHorizon, setDetailsModalHorizon] = useState<HorizonItem | null>(null);
@@ -269,7 +269,7 @@ export const HorizonSection = () => {
     }
   };
 
-  const toggleFilter = (filterType: 'Event' | 'Meeting' | 'Others') => {
+  const toggleFilter = (filterType: 'Event' | 'Meeting' | 'Conference' | 'Webinar' | 'Personal' | 'Others') => {
     setSelectedFilters(prev => {
       const newSet = new Set(prev);
       if (newSet.has(filterType)) {
@@ -302,7 +302,10 @@ export const HorizonSection = () => {
   const filteredHorizons = selectedFilters.size === 0 ? futureOrNoDateHorizons : futureOrNoDateHorizons.filter(horizon => {
     if (selectedFilters.has('Event') && horizon.type === 'Event') return true;
     if (selectedFilters.has('Meeting') && horizon.type === 'Meeting') return true;
-    if (selectedFilters.has('Others') && (horizon.type === 'OnMyMind' || horizon.type === null || (horizon.type !== 'Event' && horizon.type !== 'Meeting'))) return true;
+    if (selectedFilters.has('Conference') && horizon.type === 'Conference') return true;
+    if (selectedFilters.has('Webinar') && horizon.type === 'Webinar') return true;
+    if (selectedFilters.has('Personal') && horizon.type === 'Personal') return true;
+    if (selectedFilters.has('Others') && (horizon.type === 'OnMyMind' || horizon.type === null || (horizon.type !== 'Event' && horizon.type !== 'Meeting' && horizon.type !== 'Conference' && horizon.type !== 'Webinar' && horizon.type !== 'Personal'))) return true;
     return false;
   });
 
@@ -472,7 +475,13 @@ export const HorizonSection = () => {
                         : horizon.type === 'Event'
                         ? "text-blue-400"
                         : horizon.type === 'Meeting'
-                        ? "text-purple-400"
+                        ? "text-purple-500"
+                        : horizon.type === 'Conference'
+                        ? "text-teal-400"
+                        : horizon.type === 'Webinar'
+                        ? "text-pink-400"
+                        : horizon.type === 'Personal'
+                        ? "text-orange-400"
                         : horizon.type === 'OnMyMind'
                         ? "text-yellow-600"
                         : "text-gray-400"
@@ -610,12 +619,51 @@ export const HorizonSection = () => {
                       className={cn(
                         "px-3 py-1 text-sm font-medium rounded-full transition-colors",
                         selectedType === 'Meeting'
-                          ? "bg-purple-100 text-purple-600 ring-2 ring-purple-300"
-                          : "bg-purple-50 text-purple-600 hover:bg-purple-100"
+                          ? "bg-purple-200 text-purple-700 ring-2 ring-purple-400"
+                          : "bg-purple-100 text-purple-700 hover:bg-purple-200"
                       )}
                       disabled={loading}
                     >
                       Meeting
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedType(selectedType === 'Conference' ? null : 'Conference')}
+                      className={cn(
+                        "px-3 py-1 text-sm font-medium rounded-full transition-colors",
+                        selectedType === 'Conference'
+                          ? "bg-teal-100 text-teal-600 ring-2 ring-teal-300"
+                          : "bg-teal-50 text-teal-600 hover:bg-teal-100"
+                      )}
+                      disabled={loading}
+                    >
+                      Conference
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedType(selectedType === 'Webinar' ? null : 'Webinar')}
+                      className={cn(
+                        "px-3 py-1 text-sm font-medium rounded-full transition-colors",
+                        selectedType === 'Webinar'
+                          ? "bg-pink-100 text-pink-600 ring-2 ring-pink-300"
+                          : "bg-pink-50 text-pink-600 hover:bg-pink-100"
+                      )}
+                      disabled={loading}
+                    >
+                      Webinar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedType(selectedType === 'Personal' ? null : 'Personal')}
+                      className={cn(
+                        "px-3 py-1 text-sm font-medium rounded-full transition-colors",
+                        selectedType === 'Personal'
+                          ? "bg-orange-100 text-orange-600 ring-2 ring-orange-300"
+                          : "bg-orange-50 text-orange-600 hover:bg-orange-100"
+                      )}
+                      disabled={loading}
+                    >
+                      Personal
                     </button>
                     <button
                       type="button"
@@ -677,39 +725,85 @@ export const HorizonSection = () => {
           <div className="flex items-center gap-2 mb-2">
             <span className="text-sm text-productivity-text-secondary font-medium">Filter by type:</span>
             <div className="flex gap-2">
-              <button
-                onClick={() => toggleFilter('Event')}
-                className={cn(
-                  "px-3 py-1 text-sm font-medium rounded-full transition-colors",
-                  selectedFilters.has('Event')
-                    ? "bg-blue-100 text-blue-600 ring-2 ring-blue-300"
-                    : "bg-blue-50 text-blue-600 hover:bg-blue-100"
-                )}
-              >
-                Events
-              </button>
-              <button
-                onClick={() => toggleFilter('Meeting')}
-                className={cn(
-                  "px-3 py-1 text-sm font-medium rounded-full transition-colors",
-                  selectedFilters.has('Meeting')
-                    ? "bg-purple-100 text-purple-600 ring-2 ring-purple-300"
-                    : "bg-purple-50 text-purple-600 hover:bg-purple-100"
-                )}
-              >
-                Meetings
-              </button>
-              <button
-                onClick={() => toggleFilter('Others')}
-                className={cn(
-                  "px-3 py-1 text-sm font-medium rounded-full transition-colors",
-                  selectedFilters.has('Others')
-                    ? "bg-yellow-100 text-yellow-700 ring-2 ring-yellow-300"
-                    : "bg-yellow-50 text-yellow-700 hover:bg-yellow-100"
-                )}
-              >
-                On my mind
-              </button>
+              {(() => {
+                const eventCount = futureOrNoDateHorizons.filter(h => h.type === 'Event').length;
+                const meetingCount = futureOrNoDateHorizons.filter(h => h.type === 'Meeting').length;
+                const conferenceCount = futureOrNoDateHorizons.filter(h => h.type === 'Conference').length;
+                const webinarCount = futureOrNoDateHorizons.filter(h => h.type === 'Webinar').length;
+                const personalCount = futureOrNoDateHorizons.filter(h => h.type === 'Personal').length;
+                const othersCount = futureOrNoDateHorizons.filter(h => h.type === 'OnMyMind' || h.type === null || (h.type !== 'Event' && h.type !== 'Meeting' && h.type !== 'Conference' && h.type !== 'Webinar' && h.type !== 'Personal')).length;
+
+                return (
+                  <>
+                    <button
+                      onClick={() => toggleFilter('Event')}
+                      className={cn(
+                        "px-3 py-1 text-sm font-medium rounded-full transition-colors",
+                        selectedFilters.has('Event')
+                          ? "bg-blue-100 text-blue-600 ring-2 ring-blue-300"
+                          : "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                      )}
+                    >
+                      {eventCount} Events
+                    </button>
+                    <button
+                      onClick={() => toggleFilter('Meeting')}
+                      className={cn(
+                        "px-3 py-1 text-sm font-medium rounded-full transition-colors",
+                        selectedFilters.has('Meeting')
+                          ? "bg-purple-200 text-purple-700 ring-2 ring-purple-400"
+                          : "bg-purple-100 text-purple-700 hover:bg-purple-200"
+                      )}
+                    >
+                      {meetingCount} Meetings
+                    </button>
+                    <button
+                      onClick={() => toggleFilter('Conference')}
+                      className={cn(
+                        "px-3 py-1 text-sm font-medium rounded-full transition-colors",
+                        selectedFilters.has('Conference')
+                          ? "bg-teal-100 text-teal-600 ring-2 ring-teal-300"
+                          : "bg-teal-50 text-teal-600 hover:bg-teal-100"
+                      )}
+                    >
+                      {conferenceCount} Conferences
+                    </button>
+                    <button
+                      onClick={() => toggleFilter('Webinar')}
+                      className={cn(
+                        "px-3 py-1 text-sm font-medium rounded-full transition-colors",
+                        selectedFilters.has('Webinar')
+                          ? "bg-pink-100 text-pink-600 ring-2 ring-pink-300"
+                          : "bg-pink-50 text-pink-600 hover:bg-pink-100"
+                      )}
+                    >
+                      {webinarCount} Webinars
+                    </button>
+                    <button
+                      onClick={() => toggleFilter('Personal')}
+                      className={cn(
+                        "px-3 py-1 text-sm font-medium rounded-full transition-colors",
+                        selectedFilters.has('Personal')
+                          ? "bg-orange-100 text-orange-600 ring-2 ring-orange-300"
+                          : "bg-orange-50 text-orange-600 hover:bg-orange-100"
+                      )}
+                    >
+                      {personalCount} Personal
+                    </button>
+                    <button
+                      onClick={() => toggleFilter('Others')}
+                      className={cn(
+                        "px-3 py-1 text-sm font-medium rounded-full transition-colors",
+                        selectedFilters.has('Others')
+                          ? "bg-yellow-100 text-yellow-700 ring-2 ring-yellow-300"
+                          : "bg-yellow-50 text-yellow-700 hover:bg-yellow-100"
+                      )}
+                    >
+                      {othersCount} On my mind
+                    </button>
+                  </>
+                );
+              })()}
             </div>
           </div>
         </div>
@@ -736,10 +830,16 @@ export const HorizonSection = () => {
                   <div
                     className={cn(
                       "flex items-center p-2 rounded border border-border hover:bg-table-row-hover transition-colors",
-                      horizon.type === 'Event' 
+                      horizon.type === 'Event'
                         ? "bg-blue-50 hover:bg-blue-100"
                         : horizon.type === 'Meeting'
-                        ? "bg-purple-50 hover:bg-purple-100"
+                        ? "bg-purple-100 hover:bg-purple-200"
+                        : horizon.type === 'Conference'
+                        ? "bg-teal-50 hover:bg-teal-100"
+                        : horizon.type === 'Webinar'
+                        ? "bg-pink-50 hover:bg-pink-100"
+                        : horizon.type === 'Personal'
+                        ? "bg-orange-50 hover:bg-orange-100"
                         : horizon.type === 'OnMyMind'
                         ? "bg-yellow-50 hover:bg-yellow-100"
                         : "bg-background"
@@ -752,7 +852,13 @@ export const HorizonSection = () => {
                         {horizon.type === 'Event' ? (
                           <span className="text-sm font-medium text-blue-600 bg-blue-100 px-2 py-1 rounded">Event</span>
                         ) : horizon.type === 'Meeting' ? (
-                          <span className="text-sm font-medium text-purple-600 bg-purple-100 px-2 py-1 rounded">Meeting</span>
+                          <span className="text-sm font-medium text-purple-700 bg-purple-200 px-2 py-1 rounded">Meeting</span>
+                        ) : horizon.type === 'Conference' ? (
+                          <span className="text-sm font-medium text-teal-600 bg-teal-100 px-2 py-1 rounded">Conference</span>
+                        ) : horizon.type === 'Webinar' ? (
+                          <span className="text-sm font-medium text-pink-600 bg-pink-100 px-2 py-1 rounded">Webinar</span>
+                        ) : horizon.type === 'Personal' ? (
+                          <span className="text-sm font-medium text-orange-600 bg-orange-100 px-2 py-1 rounded">Personal</span>
                         ) : horizon.type === 'OnMyMind' ? (
                           <span className="text-sm font-medium text-yellow-700 bg-yellow-100 px-2 py-1 rounded">On mind</span>
                         ) : (
@@ -768,7 +874,13 @@ export const HorizonSection = () => {
                           : horizon.type === 'Event'
                           ? "text-blue-400"
                           : horizon.type === 'Meeting'
-                          ? "text-purple-400"
+                          ? "text-purple-500"
+                          : horizon.type === 'Conference'
+                          ? "text-teal-400"
+                          : horizon.type === 'Webinar'
+                          ? "text-pink-400"
+                          : horizon.type === 'Personal'
+                          ? "text-orange-400"
                           : horizon.type === 'OnMyMind'
                           ? "text-yellow-600"
                           : "text-gray-400"

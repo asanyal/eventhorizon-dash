@@ -145,7 +145,8 @@ const PrepViewContent = () => {
   useEffect(() => {
     if (filteredEvents.length > 0 && currentEventIndex < filteredEvents.length) {
       const currentEvent = filteredEvents[currentEventIndex];
-      const matchingHorizon = horizons.find(h => h.title === currentEvent.title);
+      const eventDate = (currentEvent.startTime instanceof Date ? currentEvent.startTime : new Date(currentEvent.startTime)).toISOString().split('T')[0];
+      const matchingHorizon = horizons.find(h => h.title === currentEvent.title && h.horizon_date === eventDate);
       setCurrentEventHorizon(matchingHorizon || null);
     }
   }, [horizons, currentEventIndex, filteredEvents]);
@@ -154,7 +155,8 @@ const PrepViewContent = () => {
   useEffect(() => {
     if (filteredEvents.length > 0 && currentEventIndex < filteredEvents.length) {
       const currentEvent = filteredEvents[currentEventIndex];
-      const matchingHorizon = horizons.find(h => h.title === currentEvent.title);
+      const eventDate = (currentEvent.startTime instanceof Date ? currentEvent.startTime : new Date(currentEvent.startTime)).toISOString().split('T')[0];
+      const matchingHorizon = horizons.find(h => h.title === currentEvent.title && h.horizon_date === eventDate);
 
       // Reset notes and edit mode when navigating between events
       if (matchingHorizon && matchingHorizon.details?.trim()) {
@@ -201,6 +203,7 @@ const PrepViewContent = () => {
         // Update existing horizon
         const editRequest: EditHorizonRequest = {
           existing_title: currentEventHorizon.title,
+          existing_horizon_date: currentEventHorizon.horizon_date,
           new_title: currentEvent.title,
           new_details: notes.trim(),
           new_type: 'Meeting',

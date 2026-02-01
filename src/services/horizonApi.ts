@@ -15,7 +15,10 @@ export class HorizonApiService {
     const typeMap: Record<string, string> = {
       'Event': 'event',
       'Meeting': 'meeting',
-      'OnMyMind': 'learning'  // Backend might expect 'learning' for OnMyMind type
+      'OnMyMind': 'learning',  // Backend might expect 'learning' for OnMyMind type
+      'Conference': 'conference',
+      'Webinar': 'webinar',
+      'Personal': 'personal'
     };
     return typeMap[type] || type.toLowerCase();
   }
@@ -23,15 +26,18 @@ export class HorizonApiService {
   // Map backend types back to frontend-expected values
   private mapTypeToFrontend(backendType: string | null | undefined): HorizonType {
     if (!backendType || backendType === 'none') return null;
-    
+
     // Map backend values to frontend types
     const typeMap: Record<string, HorizonType> = {
       'event': 'Event',
       'meeting': 'Meeting',
       'learning': 'OnMyMind',
-      'onmymind': 'OnMyMind'
+      'onmymind': 'OnMyMind',
+      'conference': 'Conference',
+      'webinar': 'Webinar',
+      'personal': 'Personal'
     };
-    
+
     return typeMap[backendType.toLowerCase()] || null;
   }
 
@@ -133,11 +139,14 @@ export class HorizonApiService {
         ...editRequest,
         // Backend requires new_details to have at least 1 character, use space if empty
         new_details: editRequest.new_details && editRequest.new_details.trim() ? editRequest.new_details : ' ',
-        ...(editRequest.new_type !== undefined && { 
+        ...(editRequest.existing_horizon_date !== undefined && {
+          existing_horizon_date: editRequest.existing_horizon_date === null ? 'null' : editRequest.existing_horizon_date
+        }),
+        ...(editRequest.new_type !== undefined && {
           new_type: this.mapTypeToBackend(editRequest.new_type)
         }),
-        ...(editRequest.new_horizon_date !== undefined && { 
-          new_horizon_date: editRequest.new_horizon_date === null ? 'null' : editRequest.new_horizon_date 
+        ...(editRequest.new_horizon_date !== undefined && {
+          new_horizon_date: editRequest.new_horizon_date === null ? 'null' : editRequest.new_horizon_date
         })
       };
 

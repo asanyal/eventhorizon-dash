@@ -413,7 +413,7 @@ const IndexContent = () => {
                   }`}
                 >
                   <PartyPopper className="w-4 h-4" />
-                  Vacation
+                  Holidays
                 </button>
                 <Link to="/prep">
                   <button
@@ -607,11 +607,6 @@ const IndexContent = () => {
                 {/* Horizons */}
                 <div>
                   <HorizonSection />
-                </div>
-
-                {/* To-do List */}
-                <div>
-                  <TodoSection />
                 </div>
               </div>
             </div>

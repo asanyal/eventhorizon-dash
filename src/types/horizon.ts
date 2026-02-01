@@ -1,4 +1,4 @@
-export type HorizonType = 'Event' | 'Meeting' | 'OnMyMind' | null;
+export type HorizonType = 'Event' | 'Meeting' | 'OnMyMind' | 'Conference' | 'Webinar' | 'Personal' | null;
 
 export interface HorizonItem {
   id?: string;
@@ -18,6 +18,7 @@ export interface CreateHorizonRequest {
 
 export interface EditHorizonRequest {
   existing_title: string;
+  existing_horizon_date?: string | null;
   new_title: string;
   new_details?: string;
   new_type?: HorizonType;
